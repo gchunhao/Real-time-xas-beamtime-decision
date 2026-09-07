@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "tsc --ignoreConfig src/api.ts src/formatters.ts --outDir .test-dist --module ESNext --moduleResolution Bundler --target ES2022 --skipLibCheck && node --test tests/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

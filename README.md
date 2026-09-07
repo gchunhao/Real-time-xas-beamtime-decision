@@ -5,11 +5,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/gchunhao/real-time-xas-beamtime-decision/actions/workflows/ci.yml/badge.svg)](https://github.com/gchunhao/real-time-xas-beamtime-decision/actions/workflows/ci.yml)
 
-A local, profile-driven decision-support application for X-ray absorption spectroscopy (XAS) beamtime. It watches a beamline data folder, validates and parses completed scans, updates cumulative quality estimates, and presents an advisory recommendation for human review in a live browser interface.
+A local, profile-driven decision-support application for X-ray absorption spectroscopy (XAS) beamtime. It watches a beamline data folder, validates and parses completed scans, updates cumulative quality estimates, and produces an automated scientific decision with supervisory Reviewer Decision/override in a live browser interface.
 
-The project translates an experimental quality-control workflow into reproducible, versioned software while preserving the scientist's authority over acquisition decisions.
+The project translates an experimental quality-control workflow into reproducible, versioned software while preserving explicit reviewer supervision and an auditable override path.
 
-> **Safety boundary:** v0.2 never controls or stops acquisition. The only automatic outputs are **CONTINUE**, **QL ONLY**, and **STOP RECOMMENDED**. An authorized beamtime team member—such as a beamline user, beamline scientist, or PI/experiment lead—makes the final decision.
+> **Safety boundary:** v0.2 has no physical acquisition/EPICS control. Automated decisions are **CONTINUE / STOP / REACQUIRE / REVIEW_REQUIRED**, but execution is simulated. Reviewer Decision is supervisory/override; REVIEW_REQUIRED holds the affected logical sample and allows the scheduler to advance.
 
 ## What it demonstrates
 
@@ -28,23 +28,20 @@ flowchart TD
     B --> C[Parse and identify scan]
     C --> D[Profile-driven analysis]
     D --> E[Cumulative metrics and uncertainty]
-    E --> F[Advisory recommendation]
-    F --> G[Human review and final decision]
-    G --> H[Versioned SQLite provenance]
+    E --> F[Automated Decision]
+    F --> G[Sample + Scheduler Actions]
+    G --> H[Reviewer Decision / Override when needed]
+    H --> I[Versioned SQLite provenance + audit]
 ```
 
 ## Project status
 
-**v0.2.0 — operator-interface release, still a research prototype.** This release adds an Athena-style scientific workspace and a no-Python Windows desktop packaging path. The first implemented and frozen profile remains `P_K_XANES_v1.2`; v0.2 does not add or alter spectrum-processing algorithms. The application is suitable for demonstration, offline testing, and beamline-specific validation; it is not a validated instrument-control system.
+**v0.2.0 — research prototype.** The first implemented and frozen profile is `P_K_XANES_v1.2`. The application is suitable for demonstration, offline testing, and beamline-specific validation; it is not a validated instrument-control system.
 
-### v0.2 operator experience
-
-- Athena-style data tree, central spectrum canvas, decision inspector, and docked human-review workflow
-- clear **Live beamtime** and **Offline review** entry points using the same traceable analysis pipeline
-- native Windows folder chooser plus a manual path fallback
-- beginner quick-start guidance and advanced controls hidden until requested
-- Windows installer that creates a desktop shortcut and opens a self-contained application window
-- persistent SQLite data under the current user's local application-data folder
+> **v0.2 UI integration:** the React frontend now follows the frozen Athena-like
+> mockup with Home, Live Workspace, Review Queue, Data Browser, Overlay Compare,
+> Offline Analysis, Audit Logs, and Settings. `GET /api/workflow` is a read-only
+> presentation projection; it does not alter QC or scientific decisions.
 
 ## Relevance to beamline science
 
@@ -52,7 +49,7 @@ This project is a working example of translating user-side XAS expertise into be
 
 - **Real-time XAS decision support:** converts incoming scans into continuously updated, explainable recommendations during limited beamtime.
 - **P K-edge XANES domain model:** implements a frozen `P_K_XANES_v1.2` profile with explicit energy windows, robust residual metrics, anomaly guards, and quantitative/qualitative routes.
-- **Human-in-the-loop operation:** keeps the final decision with an authorized beamline user, beamline scientist, or PI/experiment lead and records reviewer role and rationale.
+- **Reviewer supervision:** automated decisions are primary; reviewer records remain immutable, higher-level adjudication is supported, and explicit overrides are auditable.
 - **Traceable algorithms:** links every recommendation to the contributing scans, cumulative average, metric values, profile snapshot, and algorithm version.
 - **Beamline extensibility:** separates acquisition-folder monitoring, parsing, calibration, analysis profiles, decisions, and provenance so future beamline adapters can evolve independently.
 
@@ -72,7 +69,7 @@ The current release demonstrates software architecture and scientific workflow d
 - `N_quant` is the fastest of Route A and Route B
 - scan and time limits use the stricter constraint; time is recomputed from measured scan durations
 
-`Quantitative confirmed` is intentionally absent. Decisions use text-backed state keys and versioned snapshots, so that future state can be added without a schema redesign.
+ADP v1.0 remains shadow-calibrated and not production-promoted. Frozen v1.2 scientific thresholds are unchanged.
 
 ## Stack
 
@@ -83,15 +80,9 @@ The current release demonstrates software architecture and scientific workflow d
 - watchdog
 - React + TypeScript + Vite
 
-## Run on Windows without Python
+## Run on Windows
 
-Download `XAS-Beamtime-Decision-v0.2.0-Setup.exe` from a tagged release or the **Windows installer** GitHub Actions artifact. Run the installer, keep **Create a desktop shortcut** selected, then open **XAS Beamtime Decision** from the desktop or Start menu.
-
-The installed application opens in its own window. Choose **Live beamtime** or **Offline review**, select the XAS data folder, and start the session. Closing the application window also stops its local service. User configuration, reference files, and `xas_feedback.sqlite3` are stored under `%LOCALAPPDATA%\XAS Beamtime Decision`, so uninstalling or upgrading does not silently replace review history.
-
-## Run from source
-
-For developers, install Python 3.10+ and Node.js 20+, then open PowerShell in this folder:
+Install Python 3.10+ and Node.js 20+, then open PowerShell in this folder:
 
 ```powershell
 py -m venv .venv
@@ -105,6 +96,34 @@ xas-beamtime --config config\app.yaml
 ```
 
 Open <http://127.0.0.1:8765>. For subsequent starts, `scripts\start_windows.ps1` performs the dependency/build check and starts the app.
+
+## Windows desktop and operator workspace
+
+Ordinary users install `XAS_Framework_v0.2_Setup.exe`, keep the default desktop
+shortcut option selected, and launch **XAS Framework** from the desktop. No
+Python or command prompt is required. Runtime data are stored under
+`%LOCALAPPDATA%\XAS Framework`.
+
+Developers can build the installer on Windows with Python 3.12, Node.js 22, and
+Inno Setup 6:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\windows\build_installer.ps1
+```
+
+The script tests both stacks, bundles the app, runs its safety smoke test, and
+creates `build\installer\XAS_Framework_v0.2_Setup.exe`. The same build is
+available through `.github/workflows/windows-installer.yml`.
+
+- **Home** — session, decision, scheduler, and recent audit overview
+- **Live Workspace** — Quality vs. Scan Number, cumulative-average spectrum, Automated Decision/marginal gain, and the Human Validation Panel
+- **Review Queue** — pending/resolved/superseded cases with side-by-side Automated Decision and **Reviewer Decision**
+- **Data Browser / Overlay Compare** — project/session/sample/scan resources, scan disposition, historical decisions, reviewer status, and audit history
+- **Offline Analysis** — load existing complete spectra and keep monitoring the folder for new completed files
+
+Reviewer Decision is not limited to beamline scientists. The saved reviewer roles are User, Beamline Scientist, PI, Postdoc, Student, Operator, and Other, with identity, authority level, review context, rating, override, notes, and processing choices retained for later calibration.
+
+All scheduler text is deliberately explicit: **Beamline: Not Connected (v0.2)**, **AUTO (Simulation)**, and **Auto-execution: ELIGIBLE (Simulation)**. The software records the action that would occur but sends no acquisition-system command.
 
 The included `config/app.yaml` watches `test_data/incoming`. Change the folder in the UI or configuration for the beamline computer. Use a UNC path or drive path on Windows as needed.
 
@@ -124,7 +143,16 @@ Each file contains explicit element, edge, scan type, sample, scan number, durat
 python -m unittest discover -s tests -v
 ```
 
-The tests cover frozen thresholds, metadata parsing, core metrics, protected/safe anomaly behavior, measured-duration constraints, advisory-only decisions, and the required database entities.
+Frontend production build and resource-contract tests:
+
+```powershell
+cd frontend
+npm install
+npm run build
+npm test
+```
+
+The tests cover frozen thresholds, metadata parsing, core metrics, protected/safe anomaly behavior, resource constraints, scan disposition, review-queue behavior, reviewer adjudication, migrations, and v0.2 API contracts.
 
 ## Directory structure
 
@@ -153,13 +181,13 @@ xas_beamtime/
 
 SQLite stores the requested first-version entities:
 
-`experiment`, `sample`, `scan`, `cumulative_average`, `metrics`, `decision`, `artifact_flag`, `human_review`, `profile_version`, and `algorithm_version`.
+`project`, `session`, legacy `experiment`, `sample`, `scan`, `cumulative_average`, `metrics`, `decision`, `artifact_flag`, `human_review`, `review_queue`, `audit_event`, `profile_version`, and `algorithm_version`.
 
 Every automatic decision points to a cumulative average, frozen profile snapshot, and algorithm version. Every human review points back to that decision. This supports direct later comparison of algorithm prediction against reviewer judgment, with reviewer role retained.
 
-From two scans onward, v0.1 also records a deterministic scan-bootstrap 95% variability band for `Q_HF`. `N_quant` remains explicitly labeled as an unconfirmed power-law projection using the frozen initial `alpha=0.50` assumption.
+From two scans onward, the framework also records a deterministic scan-bootstrap 95% variability band for `Q_HF`. `N_quant` remains explicitly labeled as an unconfirmed power-law projection using the frozen initial `alpha=0.50` assumption.
 
-Human review records include scan inclusion/exclusion, weighting mode, normalization anchors, glitch confirmations/rejections, Q-ready/QL-ready/Below-QL rating, manual recommendation override, reviewer identity, reviewer role, and notes.
+Reviewer records include scan inclusion/exclusion, weighting mode, normalization anchors, glitch confirmations/rejections, Q-ready/QL-ready/Below-QL/QC-blocked rating, optional decision override, reviewer identity/role/level/context, and notes. Quality rating and decision override remain distinct.
 
 ## Add another profile
 
@@ -179,22 +207,19 @@ Reference spectra remain outside application code. Copy `reference_library/refer
 
 ## Roadmap
 
-### v0.2 — operator experience (current)
-
-- Athena-style beginner workspace and native folder selection
-- real-time beamtime and offline-review entry points
-- Windows desktop executable, installer, and shortcut workflow
-- unchanged P K-edge XANES v1.2 processing and decision rules
-
-### v0.3 — validation and beamline integration layer
+### v0.2 — validation and operator experience
 
 - Add blinded back-testing utilities and structured comparison of algorithm recommendations against human reviews
 - Add import/export of experiment summaries and audit-ready decision reports
+- Improve the live dashboard with scan-level diagnostics and configurable operator views
 - Expand automated tests for malformed, partial, duplicated, and out-of-order files
+
+### v0.3 — beamline integration layer
+
 - Add HDF5/NeXus parser adapters while retaining the universal text-table path
 - Introduce read-only EPICS/acquisition metadata adapters; no automatic acquisition control
 - Add beamline-specific calibration plugins and configuration validation
-- Validate the Windows deployment workflow on representative beamline workstations
+- Add signed-release publishing after institutional code-signing credentials are available
 
 ### v0.4 — additional spectroscopy profiles
 

@@ -1,65 +1,65 @@
-# Core architecture (v0.1, unchanged by the v0.2 UI release)
+# v0.2 architecture
 
 ## Real-time flow
 
 ```mermaid
-flowchart LR
-    A[Beamline folder] --> B[watchdog events]
-    B --> C[Completion validator]
-    C --> D[Universal parser]
-    D --> E[Profile registry]
-    E --> F[Analysis engine]
-    F --> G[Decision engine]
-    G --> H[React human review]
-    H --> I[(SQLite human loop)]
-    F --> I
-    G --> I
+flowchart TD
+    A[Beamline folder] --> B[Completion validator]
+    B --> C[Universal parser]
+    C --> D[Profile-driven analysis]
+    D --> E[Automated Decision]
+    E --> F[Sample and scheduler projection]
+    F --> G[Reviewer Decision when needed]
+    G --> H[(SQLite provenance and audit)]
+    D --> H
+    E --> H
 ```
 
-The path ends in advice, not acquisition control. `DecisionEngine` returns one of `CONTINUE`, `QL ONLY`, or `STOP RECOMMENDED`. A beamline user, beamline scientist, PI/experiment lead, or another authorized reviewer may validate it. No driver, EPICS write, stop command, or acquisition callback exists in v0.1.
+The frozen `P_K_XANES_v1.2` profile owns scan-level QC and target attainment. `ADP_v1.0-shadow` owns scan-count forecasting and converts the scientific result into explicit sample and scheduler actions. Every usable new scan invalidates the prior forecast and triggers full reevaluation. No EPICS or acquisition command is implemented; scheduler execution is simulation-only.
 
 ## Component boundaries
 
 | Component | Responsibility | Extension boundary |
 | --- | --- | --- |
-| Folder watcher | Detect created, moved, or completed modifications | watchdog observer adapter |
-| Completion validator | Stable size, readable handle, minimum size, final newline | Alternate validators for HDF5/NeXus |
-| Universal parser | Numeric table plus metadata aliases and filename fallback | Format-specific parser adapters |
+| Folder watcher | Detect created, moved, or completed files | watchdog observer adapter |
+| Completion validator | Stable size, readable handle, minimum size, final newline | HDF5/NeXus validators |
+| Universal parser | Numeric table, metadata aliases, filename fallback | Format-specific adapters |
 | Profile registry | Match element, edge, and scan type | Versioned YAML profiles |
-| Analysis engine | Alignment, safe masking, averaging, metrics, uncertainty | Metric-family engine registry |
-| Decision engine | Route, limits, marginal gain, advisory state | Profile policy without acquisition actions |
-| Human validation | Review spectra, artifacts, inclusion, anchors, rating, override | Stored calibration observations |
+| Analysis engine | Alignment, safe masking, averaging, metrics, uncertainty | Metric-family registry |
+| Decision engine | Frozen target check plus ADP Shadow prediction | Separately versioned policy |
+| Disposition service | Separate physical and usable scan counts | Beamline-specific disposition rules |
+| Scheduler adapter | Project sample/scheduler actions | Simulation in v0.2; no instrument driver |
+| Reviewer workflow | Rating, notes, processing choices, optional override | Immutable calibration observations |
+| Resource API | Project/session/sample/scan/decision/review/audit projections | Additional read models |
 
-## State machine
+## Decision and review behavior
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Collecting
-    Collecting --> QuantitativeCandidate: Route A or B reached
-    Collecting --> QualitativeOnly: strictest limit reached and protected region usable
-    Collecting --> StopRecommended: strictest limit reached and below QL
-    QuantitativeCandidate --> StopRecommended: advisory output
-    QualitativeOnly --> HumanDecision
-    StopRecommended --> HumanDecision
-    HumanDecision --> Collecting: reviewer continues
-    HumanDecision --> [*]: reviewer stops
+    [*] --> CONTINUE
+    CONTINUE --> STOP: Route A or B reached
+    CONTINUE --> REACQUIRE: unusable acquisition
+    CONTINUE --> REVIEW_REQUIRED: protected or unresolved condition
+    REACQUIRE --> CONTINUE: replacement scan usable
+    REVIEW_REQUIRED --> CONTINUE: reviewer override
+    REVIEW_REQUIRED --> STOP: reviewer override
 ```
 
-`Quantitative confirmed` is not a v0.1 state. State values are stored as text and decision/review records are append-only, so a future confirmation state will not require changing foreign keys or replacing a database enum.
+Automated Decision is primary. Reviewer Decision is supervisory: no reviewer record means no override, not approval. A quality rating alone does not resolve a `REVIEW_REQUIRED` item. Conflicting reviewer decisions are retained; the highest-level valid reviewer judgment becomes the adjudicated label, while same-level conflicts remain explicit.
 
 ## Provenance and feedback relation
 
 ```mermaid
 erDiagram
-    EXPERIMENT ||--o{ SAMPLE : contains
+    PROJECT ||--o{ SESSION : contains
+    SESSION ||--o{ SAMPLE : contains
     SAMPLE ||--o{ SCAN : acquires
     SAMPLE ||--o{ CUMULATIVE_AVERAGE : produces
     CUMULATIVE_AVERAGE ||--|| METRICS : has
     CUMULATIVE_AVERAGE ||--|| DECISION : drives
-    CUMULATIVE_AVERAGE ||--o{ ARTIFACT_FLAG : flags
-    PROFILE_VERSION ||--o{ DECISION : configures
-    ALGORITHM_VERSION ||--o{ DECISION : computes
     DECISION ||--o{ HUMAN_REVIEW : compared_with
+    DECISION ||--o{ REVIEW_QUEUE : routes
+    DECISION ||--o{ AUDIT_EVENT : records
 ```
 
-The scientific learning query is therefore direct: automatic recommendation and metrics join to human rating/override through `decision_id`, with reviewer role plus exact profile and algorithm snapshots retained.
+Automatic results, reviewer records, scan disposition, profile snapshots, algorithm versions, and scheduler projections remain independently auditable.

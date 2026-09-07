@@ -6,7 +6,7 @@ __pycache__/
 runtime/
 dist/
 build/
-release/
 node_modules/
+.test-dist/
 *.tsbuildinfo
 *.egg-info/
