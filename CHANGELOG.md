@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the Windows bundle missing SciPy's vendored Array API compatibility
+  modules, which caused the installed application to fail while importing
+  `scipy.signal`.
+- Pinned the Windows numeric/build toolchain used by the installer workflow.
+- Made every native build, test, packaged smoke-test, and installer command
+  fail the workflow immediately when it returns a non-zero exit code.
+- Kept `P_K_XANES v1.2` and all scientific decision behavior unchanged.
+
 ## [0.2.0] - 2026-09-07 — frozen UI integration and Windows packaging
 
 - Rebuilt the React/TypeScript interface to the frozen v0.2 Athena-like layout.
