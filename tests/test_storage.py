@@ -42,6 +42,8 @@ class StorageTests(unittest.TestCase):
             self.assertTrue({"disposition", "disposition_reason", "replacement_for_scan_id", "replaced_by_scan_id"}.issubset(scan_columns))
             self.assertTrue({"logical_sample_key", "spot_id", "grouping_confidence", "grouping_method", "session_id"}.issubset(sample_columns))
             self.assertTrue({"analysis_context", "physical_scan_count", "usable_scan_count"}.issubset(average_columns))
+            connection.close()
+            storage.close()
 
     def test_schema_migrates_existing_v01_database(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -72,7 +74,7 @@ class StorageTests(unittest.TestCase):
               normalization_mode TEXT, created_at TEXT);
             """)
             connection.close()
-            Storage(path)
+            storage = Storage(path)
             migrated = sqlite3.connect(path)
             self.assertIn("scientific_decision", {row[1] for row in migrated.execute("PRAGMA table_info(decision)")})
             self.assertIn("disposition", {row[1] for row in migrated.execute("PRAGMA table_info(scan)")})
@@ -80,6 +82,8 @@ class StorageTests(unittest.TestCase):
             self.assertIn("session_id", {row[1] for row in migrated.execute("PRAGMA table_info(sample)")})
             migrated_names = {row[0] for row in migrated.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.assertTrue({"project", "session", "review_queue", "schema_version"}.issubset(migrated_names))
+            migrated.close()
+            storage.close()
 
     def test_reviewer_hierarchy_and_same_level_conflict(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -112,6 +116,8 @@ class StorageTests(unittest.TestCase):
             row = connection.execute("SELECT adjudicated_reviewer_decision, adjudication_status FROM decision").fetchone()
             self.assertIsNone(row[0])
             self.assertEqual(row[1], "UNRESOLVED_SAME_LEVEL_CONFLICT")
+            connection.close()
+            storage.close()
 
 
 if __name__ == "__main__":

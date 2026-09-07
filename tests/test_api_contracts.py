@@ -54,6 +54,7 @@ class ApiContractTests(unittest.TestCase):
                 "/api/workflow",
             }
             self.assertTrue(expected.issubset(paths))
+            app.state.beamtime.close()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,9 @@
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_submodules
+
 root = Path(SPECPATH).parents[1]
+scipy_array_api_hiddenimports = collect_submodules("scipy._external.array_api_compat")
 datas = [
     (str(root / "frontend" / "dist"), "frontend/dist"),
     (str(root / "config" / "app.windows.yaml"), "config"),
@@ -14,7 +17,13 @@ a = Analysis(
     pathex=[str(root)],
     binaries=[],
     datas=datas,
-    hiddenimports=["uvicorn.logging", "uvicorn.loops.auto", "uvicorn.protocols.http.auto", "uvicorn.protocols.websockets.auto", "watchdog.observers.winapi"],
+    hiddenimports=[
+        "uvicorn.logging",
+        "uvicorn.loops.auto",
+        "uvicorn.protocols.http.auto",
+        "uvicorn.protocols.websockets.auto",
+        "watchdog.observers.winapi",
+    ] + scipy_array_api_hiddenimports,
     hookspath=[], hooksconfig={}, runtime_hooks=[], excludes=[], noarchive=False,
 )
 pyz = PYZ(a.pure)

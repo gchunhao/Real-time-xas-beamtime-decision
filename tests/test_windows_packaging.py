@@ -23,6 +23,16 @@ class WindowsPackagingTests(unittest.TestCase):
         self.assertIn('windows-latest', workflow)
         self.assertIn('XAS_Framework_v0.2_Setup.exe', workflow)
 
+    def test_scipy_runtime_modules_and_native_failures_are_guarded(self) -> None:
+        root = Path(__file__).parent.parent
+        spec = (root / "packaging" / "windows" / "XASFramework.spec").read_text(encoding="utf-8")
+        build_script = (root / "packaging" / "windows" / "build_installer.ps1").read_text(encoding="utf-8")
+        build_requirements = (root / "packaging" / "windows" / "requirements-build.txt").read_text(encoding="utf-8")
+
+        self.assertIn('collect_submodules("scipy._external.array_api_compat")', spec)
+        self.assertIn('Assert-LastExitCode "Packaged application smoke test"', build_script)
+        self.assertIn('scipy==1.18.1', build_requirements)
+
 
 if __name__ == "__main__":
     unittest.main()

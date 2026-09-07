@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from xas_beamtime.config import AppConfig
@@ -34,8 +35,7 @@ class ServicePipelineTests(unittest.TestCase):
         return service
 
     def test_scan_disposition_drives_review_queue_and_usable_count(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            service = self._service(directory)
+        with tempfile.TemporaryDirectory() as directory, closing(self._service(directory)) as service:
             scan_path = Path(__file__).parent.parent / "test_data" / "incoming" / "apatite_scan-001.dat"
             service._on_complete(scan_path)
             scans = service.scans("apatite")
@@ -60,8 +60,7 @@ class ServicePipelineTests(unittest.TestCase):
             self.assertEqual(len(service.storage.review_queue("SUPERSEDED")), 1)
 
     def test_reviewer_override_resolves_review_queue_but_quality_rating_alone_does_not(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            service = self._service(directory)
+        with tempfile.TemporaryDirectory() as directory, closing(self._service(directory)) as service:
             scan_path = Path(__file__).parent.parent / "test_data" / "incoming" / "apatite_scan-001.dat"
             service._on_complete(scan_path)
             scan_id = service.scans("apatite")[0]["id"]
@@ -104,8 +103,7 @@ class ServicePipelineTests(unittest.TestCase):
             self.assertNotIn("apatite", service.scheduler.held_samples)
 
     def test_project_session_sample_resources_are_populated(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            service = self._service(directory)
+        with tempfile.TemporaryDirectory() as directory, closing(self._service(directory)) as service:
             scan_path = Path(__file__).parent.parent / "test_data" / "incoming" / "apatite_scan-001.dat"
             service._on_complete(scan_path)
             self.assertEqual(len(service.projects()), 1)
@@ -116,8 +114,7 @@ class ServicePipelineTests(unittest.TestCase):
             self.assertEqual(samples[0]["physical_scan_count"], 1)
 
     def test_workflow_projection_is_read_only_simulation_state(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            service = self._service(directory)
+        with tempfile.TemporaryDirectory() as directory, closing(self._service(directory)) as service:
             scan_path = Path(__file__).parent.parent / "test_data" / "incoming" / "apatite_scan-001.dat"
             service._on_complete(scan_path)
             before = service.storage.table_counts()
