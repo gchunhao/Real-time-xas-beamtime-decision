@@ -63,6 +63,13 @@ class ProfileAndDecisionTests(unittest.TestCase):
         self.assertIsNotNone(outcome.alpha_pred)
         self.assertLessEqual(outcome.alpha_pred or 1, 0.5)
 
+    def test_prediction_is_not_truncated_above_four_total_scans(self) -> None:
+        metrics = QualityMetrics(.012, .004, .006, 4.0, 2152, 1, "full", None, True, [])
+        scan = Spectrum(np.array([1, 2]), np.array([0, 1]), ScanMetadata("x", duration_seconds=80))
+        outcome = DecisionEngine(self.profile).decide(metrics, 1, 80, [scan], RuntimeLimits(20, 5000))
+        self.assertEqual(outcome.predicted_n_quant, 8)
+        self.assertEqual(outcome.recommendation.value, "CONTINUE")
+
     def test_review_required_routes_sample_hold_and_scheduler_advance(self) -> None:
         outcome = DecisionEngine(self.profile).review_required(
             "Independent reproducibility evidence is unstable",
