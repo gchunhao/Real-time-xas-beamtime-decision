@@ -1,0 +1,11 @@
+schema_version: 1
+profile_id: P_K_XANES_v1.2
+references:
+  - id: example_reference
+    label: Replace with a curated P K-edge standard
+    path: data/example_reference.csv
+    energy_column: energy_ev
+    signal_column: mu
+    provenance:
+      source: external
+      citation: ""

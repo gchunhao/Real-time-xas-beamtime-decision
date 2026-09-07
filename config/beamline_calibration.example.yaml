@@ -1,0 +1,9 @@
+schema_version: 1
+beamline: DEMO
+energy_offset_ev: 0.0
+energy_scale: 1.0
+incident_channel: I0
+transmission_channel: It
+fluorescence_channels: []
+deadtime_correction: null
+notes: Replace with a beamline-validated calibration file.

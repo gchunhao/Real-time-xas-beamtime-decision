@@ -1,0 +1,20 @@
+.uncertainty,
+.diagnostic {
+  margin: 0 17px 10px;
+  color: #8fa9bd;
+  font-size: 0.68rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.uncertainty strong {
+  color: #c9ddea;
+  font-weight: 600;
+}
+
+.diagnostic {
+  justify-content: flex-start;
+  color: #e6b96a;
+  align-items: center;
+}

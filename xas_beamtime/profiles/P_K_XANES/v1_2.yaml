@@ -1,0 +1,60 @@
+schema_version: 1
+id: P_K_XANES_v1.2
+version: "1.2"
+status: frozen
+identity:
+  element: P
+  edge: K
+  scan_type: XANES
+energy:
+  edge_search_window_ev: [2140.0, 2165.0]
+  minimum_points: 80
+  interpolation_step_ev: 0.15
+normalization:
+  mode: auto
+  pre_edge_offsets_ev: [-10.0, -4.0]
+  post_edge_offsets_ev: [27.0, 50.0]
+  local_anchor_defaults_ev:
+    pre: [-10.0, -4.0]
+    post: [27.0, 50.0]
+quality:
+  feature_offsets_ev: [5.0, 23.0]
+  white_line_offsets_ev: [0.0, 5.0]
+  savgol:
+    width_points: 11
+    polynomial_order: 3
+  robust_mad_scale: 1.4826
+  route_a:
+    q_hf_max: 0.0045
+  route_b:
+    q_hf_max: 0.0070
+    q_pre_max: 0.0055
+    q_post_max: 0.0095
+    a_spike_max: 3.0
+  qualitative_guardrails:
+    q_hf_max: 0.012
+    a_spike_max: 6.0
+  anomaly_detection:
+    safe_zone_z_threshold: 6.0
+    protected_zone_z_threshold: 4.5
+    protected_regions:
+      - {name: xanes_feature, offsets_ev: [0.0, 23.0]}
+    safe_regions:
+      - {name: local_pre, offsets_ev: [-10.0, -4.0]}
+      - {name: post_edge, offsets_ev: [27.0, 50.0]}
+averaging:
+  initial_alpha: 0.50
+  default_mode: equal
+decision:
+  precedence: [quantitative, qualitative, stop]
+  quantitative_routes: [A, B]
+  n_quant_rule: fastest_route
+  future_states:
+    - quantitative_confirmed
+references:
+  interface_version: 1
+  manifest_filename: references.yaml
+  datasets_external: true
+calibration:
+  interface_version: 1
+  optional_filename: beamline_calibration.yaml
