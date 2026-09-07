@@ -21,22 +21,18 @@ dependencies = [
   "PyYAML>=6.0",
 ]
 
-[project.optional-dependencies]
-desktop = [
-  "pywebview>=5.0",
-  "pyinstaller>=6.0",
-]
-
 [project.urls]
 Repository = "https://github.com/gchunhao/real-time-xas-beamtime-decision"
 Issues = "https://github.com/gchunhao/real-time-xas-beamtime-decision/issues"
 
 [project.scripts]
 xas-beamtime = "xas_beamtime.cli:main"
-xas-beamtime-desktop = "xas_beamtime.desktop:main"
 
 [tool.setuptools.packages.find]
 include = ["xas_beamtime*"]
 
 [tool.setuptools.package-data]
 xas_beamtime = ["profiles/**/*.yaml"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

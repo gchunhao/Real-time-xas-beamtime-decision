@@ -59,7 +59,10 @@ class AnalysisEngine:
             ordered = [s for s in ordered if canonical_scan_id(s.metadata) in included_scan_ids]
         results: list[AnalysisResult] = []
         for count in range(1, len(ordered) + 1):
-            current = self._analyze(ordered[:count], profile, limits, averaging_mode, anchors)
+            current = self._analyze(
+                ordered[:count], profile, limits, averaging_mode, anchors,
+                prior_metrics=[result.metrics for result in results],
+            )
             if results:
                 previous = results[-1].metrics.q_hf
                 current_value = current.metrics.q_hf
@@ -78,6 +81,7 @@ class AnalysisEngine:
         limits: RuntimeLimits,
         averaging_mode: str,
         anchors: dict[str, list[float]] | None,
+        prior_metrics: list[QualityMetrics] | None = None,
     ) -> AnalysisResult:
         energy, aligned = self._align(scans, float(profile.get("energy.interpolation_step_ev", 0.15)))
         e0_seed = self._find_e0(energy, np.nanmean(aligned, axis=0), profile)
@@ -91,11 +95,13 @@ class AnalysisEngine:
         scan_ids = [canonical_scan_id(scan.metadata) for scan in scans]
         from .decision import DecisionEngine
 
-        outcome = DecisionEngine(profile).decide(metrics, len(scans), total_seconds, scans, limits)
+        outcome = DecisionEngine(profile).decide(
+            metrics, len(scans), total_seconds, scans, limits, prior_metrics=prior_metrics
+        )
         source_fingerprints = [self._fingerprint(scan) for scan in scans]
         return AnalysisResult(
             analysis_id=str(uuid.uuid4()),
-            sample_id=scans[0].metadata.sample_id or "unknown",
+            sample_id=scans[0].metadata.logical_sample_key or scans[0].metadata.sample_id or "unknown",
             profile_id=profile.id,
             scan_count=len(scans),
             scan_ids=scan_ids,
@@ -114,7 +120,23 @@ class AnalysisEngine:
             remaining_scan_budget=outcome.remaining_scan_budget,
             remaining_time_seconds=outcome.remaining_time_seconds,
             averaging_mode=averaging_mode,
-            uncertainty=uncertainty,
+            physical_scan_count=len(scans),
+            usable_scan_count=len(scans),
+            sample_action=outcome.sample_action,
+            scheduler_action=outcome.scheduler_action,
+            auto_execution_eligibility=outcome.auto_execution_eligibility,
+            resource_constraint=outcome.resource_constraint,
+            effective_scheduler_action=outcome.effective_scheduler_action,
+            decision_reason_codes=outcome.reason_codes,
+            suggested_reviewer_action=outcome.suggested_reviewer_action,
+            decision_confidence=outcome.confidence,
+            decision_policy_version=DecisionEngine.policy_version,
+            uncertainty={
+                **uncertainty,
+                "alpha_global": outcome.alpha_global,
+                "alpha_recent": outcome.alpha_recent,
+                "alpha_pred": outcome.alpha_pred,
+            },
             provenance={
                 "algorithm_version": self.algorithm_version,
                 "profile_version": profile.data.get("version"),
