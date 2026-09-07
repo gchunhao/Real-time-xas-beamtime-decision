@@ -141,6 +141,11 @@ class Storage:
             self._connection.executescript(SCHEMA)
             self._migrate_v02()
 
+    def close(self) -> None:
+        """Release the SQLite handle deterministically (required on Windows)."""
+        with self._lock:
+            self._connection.close()
+
     def _columns(self, table: str) -> set[str]:
         return {row[1] for row in self._connection.execute(f"PRAGMA table_info({table})")}
 

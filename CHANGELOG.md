@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Close SQLite resources deterministically so Windows can remove temporary test databases.
+
 - Fixed the Windows bundle missing SciPy's vendored Array API compatibility
   modules, which caused the installed application to fail while importing
   `scipy.signal`.

@@ -66,6 +66,10 @@ class BeamtimeService:
             self.watcher.stop()
             self.watcher = None
 
+    def close(self) -> None:
+        self.stop()
+        self.storage.close()
+
     def set_watch(self, folder: str | Path, limits: RuntimeLimits, averaging_mode: str) -> None:
         with self._lock:
             if self.watcher:

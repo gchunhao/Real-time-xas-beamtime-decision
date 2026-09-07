@@ -69,8 +69,10 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         service.start()
-        yield
-        service.stop()
+        try:
+            yield
+        finally:
+            service.close()
 
     app = FastAPI(title="Real-time XAS Beamtime Decision Framework", version="0.2.0", lifespan=lifespan)
     app.state.beamtime = service
