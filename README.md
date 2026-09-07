@@ -88,7 +88,7 @@ Uncertainty, diagnostics, provenance, beamline calibration, and the human-learni
 
 - `E0` is determined from the smoothed first-derivative maximum in the configured P K-edge window.
 - Local pre-edge, white-line, protected feature, and post-edge regions are defined relative to `E0`.
-- Robust metrics include `Q_HF`, `Q_pre`, `Q_post`, `A_spike`, inter-scan `E0` stability, signal-scale stability, and shape reproducibility.
+- Implemented frozen scan/cumulative QC metrics are `Q_HF`, `Q_pre`, `Q_post`, and `A_spike`. Inter-scan `S_E0`, `S_signal`, and `R_shape` are currently calibration/shadow reproducibility metrics and are not yet wired into production quality decisions.
 - Route A uses `Q_HF <= 0.45%`.
 - Route B uses `0.45% < Q_HF <= 0.70%`, `Q_pre <= 0.55%`, `Q_post <= 0.95%`, and `A_spike <= 3.0`.
 - Protected XANES-region anomalies are flagged and never automatically removed.
@@ -96,7 +96,7 @@ Uncertainty, diagnostics, provenance, beamline calibration, and the human-learni
 - Local normalization remains available when full pre/post coverage is poor but the protected feature region remains usable.
 - Scan and time limits are evaluated together, using the stricter constraint.
 
-The initial averaging prediction uses the frozen `alpha = 0.50` assumption. Forecasts are explicitly presented as projections rather than confirmed quantitative results.
+The initial averaging prediction uses the frozen `alpha = 0.50` assumption. Route A/Route B forecasts return the calculated **total scan count** without an arbitrary hard cutoff; each newly acquired usable scan invalidates the prior forecast and triggers reevaluation. Forecasts are projections rather than confirmed quantitative results, and resource limits are handled separately from the spectroscopy calculation.
 
 ## Human-in-the-loop design
 
