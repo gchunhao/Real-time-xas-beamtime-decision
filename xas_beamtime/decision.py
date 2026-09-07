@@ -45,8 +45,6 @@ class DecisionEngine:
     """
 
     policy_version = "ADP_v1.0-shadow"
-    validated_prediction_max_n = 4
-
     def __init__(self, profile: Profile):
         self.profile = profile
 
@@ -223,10 +221,10 @@ class DecisionEngine:
         ratios.append(metrics.q_post / float(route_b["q_post_max"]) if metrics.q_post is not None else float("inf"))
         if metrics.a_spike is not None and metrics.a_spike <= float(route_b["a_spike_max"]):
             candidates.append(self._required(scan_count, max(ratios), alpha))
-        predicted = min(candidates) if candidates else None
-        if predicted is not None and predicted > self.validated_prediction_max_n:
-            return None
-        return predicted
+        # Return the mathematical total-scan forecast without an arbitrary
+        # hard cutoff. Validation range/confidence is a separate ADP concern
+        # and must not truncate the frozen Route A/Route B calculation.
+        return min(candidates) if candidates else None
 
     @staticmethod
     def _required(scan_count: int, ratio: float, alpha: float) -> int:
