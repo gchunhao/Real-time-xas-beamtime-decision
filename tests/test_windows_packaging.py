@@ -26,11 +26,16 @@ class WindowsPackagingTests(unittest.TestCase):
     def test_scipy_runtime_modules_and_native_failures_are_guarded(self) -> None:
         root = Path(__file__).parent.parent
         spec = (root / "packaging" / "windows" / "XASFramework.spec").read_text(encoding="utf-8")
+        launcher = (root / "packaging" / "windows" / "xas_launcher.py").read_text(encoding="utf-8")
         build_script = (root / "packaging" / "windows" / "build_installer.ps1").read_text(encoding="utf-8")
         build_requirements = (root / "packaging" / "windows" / "requirements-build.txt").read_text(encoding="utf-8")
 
         self.assertIn('collect_submodules("scipy._external.array_api_compat")', spec)
-        self.assertIn('Assert-LastExitCode "Packaged application smoke test"', build_script)
+        self.assertIn('ensure_stdio(root)', launcher)
+        self.assertIn('runtime" / "launcher.log', launcher)
+        self.assertIn('Start-Process', build_script)
+        self.assertIn('-Wait -PassThru', build_script)
+        self.assertIn('$Smoke.ExitCode', build_script)
         self.assertIn('scipy==1.18.1', build_requirements)
 
 
