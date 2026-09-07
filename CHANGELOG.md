@@ -3,6 +3,10 @@
 ## Unreleased
 
 - Close SQLite resources deterministically so Windows can remove temporary test databases.
+- Fixed installed shortcut startup when the windowed executable has no console streams;
+  launcher output is now written to `%LOCALAPPDATA%\XAS Framework\runtime\launcher.log`.
+- Made the Windows packaged-application smoke test wait for the GUI executable and
+  validate its real exit code instead of accepting an asynchronous launch.
 
 - Fixed the Windows bundle missing SciPy's vendored Array API compatibility
   modules, which caused the installed application to fail while importing

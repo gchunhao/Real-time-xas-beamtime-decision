@@ -31,8 +31,10 @@ Assert-LastExitCode "Backend tests"
 Write-Host "[4/5] Building Windows application"
 python -m PyInstaller --noconfirm --clean --distpath build/dist --workpath build/pyinstaller packaging/windows/XASFramework.spec
 Assert-LastExitCode "PyInstaller build"
-& "build\dist\XASFramework\XASFramework.exe" --smoke-test
-Assert-LastExitCode "Packaged application smoke test"
+$Smoke = Start-Process -FilePath "build\dist\XASFramework\XASFramework.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+if ($Smoke.ExitCode -ne 0) {
+    throw "Packaged application smoke test failed with exit code $($Smoke.ExitCode)"
+}
 
 Write-Host "[5/5] Building installer"
 $Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"

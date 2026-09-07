@@ -13,6 +13,7 @@ from pathlib import Path
 
 
 APP_NAME = "XAS Framework"
+_stdio_log = None
 
 
 def bundle_root() -> Path:
@@ -44,6 +45,20 @@ def prepare_user_files() -> Path:
     return root
 
 
+def ensure_stdio(root: Path) -> None:
+    """Give windowed PyInstaller builds streams for Uvicorn logging."""
+    global _stdio_log
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    _stdio_log = (root / "runtime" / "launcher.log").open(
+        "a", encoding="utf-8", buffering=1
+    )
+    if sys.stdout is None:
+        sys.stdout = _stdio_log
+    if sys.stderr is None:
+        sys.stderr = _stdio_log
+
+
 def wait_until_ready(url: str, timeout: float = 20.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -68,7 +83,8 @@ def available_port(host: str, preferred: int = 8765) -> int:
 
 
 def run(smoke_test: bool = False) -> int:
-    prepare_user_files()
+    root = prepare_user_files()
+    ensure_stdio(root)
     from xas_beamtime.api import app
     import uvicorn
 
