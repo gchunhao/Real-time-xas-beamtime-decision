@@ -8,8 +8,8 @@ import sys
 import threading
 import time
 import urllib.request
-import webbrowser
 from pathlib import Path
+from typing import Any
 
 
 APP_NAME = "XAS Framework"
@@ -82,6 +82,48 @@ def available_port(host: str, preferred: int = 8765) -> int:
     raise RuntimeError("No local port is available for XAS Framework.")
 
 
+class NativeFileDialogBridge:
+    """Minimal JS bridge: file/folder picking only. No hardware or process control."""
+
+    def __init__(self) -> None:
+        self._window: Any | None = None
+
+    def _bind_window(self, window: Any) -> None:
+        self._window = window
+
+    @staticmethod
+    def _paths(result: Any) -> list[str]:
+        if result is None:
+            return []
+        if isinstance(result, (str, Path)):
+            return [str(Path(result))]
+        return [str(Path(item)) for item in result]
+
+    def select_folder(self) -> str | None:
+        if self._window is None:
+            return None
+        import webview
+
+        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+        paths = self._paths(result)
+        return paths[0] if paths else None
+
+    def select_files(self) -> list[str]:
+        if self._window is None:
+            return []
+        import webview
+
+        result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG,
+            allow_multiple=True,
+            file_types=(
+                "XAS text data (*.dat;*.txt;*.csv;*.xas;*.xy)",
+                "All files (*.*)",
+            ),
+        )
+        return self._paths(result)
+
+
 def run(smoke_test: bool = False) -> int:
     root = prepare_user_files()
     ensure_stdio(root)
@@ -102,8 +144,30 @@ def run(smoke_test: bool = False) -> int:
         server.should_exit = True
         thread.join(5)
         return 0
-    threading.Timer(1.0, lambda: webbrowser.open(f"http://{host}:{port}")).start()
-    server.run()
+
+    import webview
+
+    thread = threading.Thread(target=server.run, name="xas-local-api", daemon=True)
+    thread.start()
+    url = f"http://{host}:{port}"
+    try:
+        wait_until_ready(f"{url}/api/workflow")
+        bridge = NativeFileDialogBridge()
+        window = webview.create_window(
+            APP_NAME,
+            url,
+            js_api=bridge,
+            width=1440,
+            height=940,
+            min_size=(1120, 720),
+            confirm_close=False,
+            text_select=True,
+        )
+        bridge._bind_window(window)
+        webview.start(gui="edgechromium", debug=False)
+    finally:
+        server.should_exit = True
+        thread.join(5)
     return 0
 
 
