@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import os
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -16,6 +17,7 @@ from .service import BeamtimeService
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", PROJECT_ROOT))
 CONFIG_PATH = Path(os.environ.get("XAS_CONFIG", PROJECT_ROOT / "config" / "app.yaml"))
 if not CONFIG_PATH.exists():
     CONFIG_PATH = PROJECT_ROOT / "config" / "app.example.yaml"
@@ -62,7 +64,7 @@ def create_app() -> FastAPI:
         yield
         service.stop()
 
-    app = FastAPI(title="Real-time XAS Beamtime Decision Framework", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Real-time XAS Beamtime Decision Framework", version="0.2.0", lifespan=lifespan)
     app.state.beamtime = service
 
     @app.get("/api/state")
@@ -81,6 +83,18 @@ def create_app() -> FastAPI:
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return service.state()
+
+    @app.post("/api/select-folder")
+    def select_folder(x_xas_local: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+        """Open the operating system folder picker for this local-only application."""
+        if x_xas_local != "1":
+            raise HTTPException(status_code=403, detail="Local application header required")
+        try:
+            from .folder_dialog import select_directory
+            selected = select_directory(service.watch_folder)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=501, detail=str(exc)) from exc
+        return {"folder": str(selected) if selected else None, "cancelled": selected is None}
 
     @app.post("/api/reanalyze")
     def reanalyze(request: ReanalysisRequest) -> dict[str, Any]:
@@ -110,7 +124,7 @@ def create_app() -> FastAPI:
     def references() -> dict[str, Any]:
         return service.references.manifest(service.profile.get("references.manifest_filename", "references.yaml"))
 
-    frontend = PROJECT_ROOT / "frontend" / "dist"
+    frontend = BUNDLE_ROOT / "frontend" / "dist"
     if frontend.exists():
         assets = frontend / "assets"
         if assets.exists():

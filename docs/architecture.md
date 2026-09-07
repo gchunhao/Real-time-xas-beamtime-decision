@@ -1,4 +1,4 @@
-# v0.1 architecture
+# Core architecture (v0.1, unchanged by the v0.2 UI release)
 
 ## Real-time flow
 

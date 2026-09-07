@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 runtime/
 dist/
+build/
+release/
 node_modules/
 *.tsbuildinfo
 *.egg-info/

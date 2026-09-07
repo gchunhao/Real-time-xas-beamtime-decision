@@ -1,0 +1,24 @@
+watch:
+  folder: ./incoming
+  recursive: false
+  poll_seconds: 0.5
+  completion:
+    stable_checks: 3
+    stable_interval_seconds: 0.3
+    minimum_bytes: 256
+    require_final_newline: true
+analysis:
+  profile_id: P_K_XANES_v1.2
+  averaging_mode: equal
+limits:
+  maximum_scans: 8
+  maximum_time_seconds: 900
+storage:
+  database: ./runtime/xas_feedback.sqlite3
+references:
+  root: ./reference_library
+beamline:
+  calibration_file: ./config/beamline_calibration.yaml
+server:
+  host: 127.0.0.1
+  port: 8765

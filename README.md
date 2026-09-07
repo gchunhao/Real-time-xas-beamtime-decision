@@ -1,6 +1,6 @@
 # Real-time XAS Beamtime Decision Framework
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/gchunhao/real-time-xas-beamtime-decision/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)](https://github.com/gchunhao/real-time-xas-beamtime-decision/releases)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/gchunhao/real-time-xas-beamtime-decision/actions/workflows/ci.yml/badge.svg)](https://github.com/gchunhao/real-time-xas-beamtime-decision/actions/workflows/ci.yml)
@@ -9,7 +9,7 @@ A local, profile-driven decision-support application for X-ray absorption spectr
 
 The project translates an experimental quality-control workflow into reproducible, versioned software while preserving the scientist's authority over acquisition decisions.
 
-> **Safety boundary:** v0.1 never controls or stops acquisition. The only automatic outputs are **CONTINUE**, **QL ONLY**, and **STOP RECOMMENDED**. An authorized beamtime team member—such as a beamline user, beamline scientist, or PI/experiment lead—makes the final decision.
+> **Safety boundary:** v0.2 never controls or stops acquisition. The only automatic outputs are **CONTINUE**, **QL ONLY**, and **STOP RECOMMENDED**. An authorized beamtime team member—such as a beamline user, beamline scientist, or PI/experiment lead—makes the final decision.
 
 ## What it demonstrates
 
@@ -35,7 +35,16 @@ flowchart TD
 
 ## Project status
 
-**v0.1.0 — research prototype.** The first implemented and frozen profile is `P_K_XANES_v1.2`. The application is suitable for demonstration, offline testing, and beamline-specific validation; it is not a validated instrument-control system.
+**v0.2.0 — operator-interface release, still a research prototype.** This release adds an Athena-style scientific workspace and a no-Python Windows desktop packaging path. The first implemented and frozen profile remains `P_K_XANES_v1.2`; v0.2 does not add or alter spectrum-processing algorithms. The application is suitable for demonstration, offline testing, and beamline-specific validation; it is not a validated instrument-control system.
+
+### v0.2 operator experience
+
+- Athena-style data tree, central spectrum canvas, decision inspector, and docked human-review workflow
+- clear **Live beamtime** and **Offline review** entry points using the same traceable analysis pipeline
+- native Windows folder chooser plus a manual path fallback
+- beginner quick-start guidance and advanced controls hidden until requested
+- Windows installer that creates a desktop shortcut and opens a self-contained application window
+- persistent SQLite data under the current user's local application-data folder
 
 ## Relevance to beamline science
 
@@ -74,9 +83,15 @@ The current release demonstrates software architecture and scientific workflow d
 - watchdog
 - React + TypeScript + Vite
 
-## Run on Windows
+## Run on Windows without Python
 
-Install Python 3.10+ and Node.js 20+, then open PowerShell in this folder:
+Download `XAS-Beamtime-Decision-v0.2.0-Setup.exe` from a tagged release or the **Windows installer** GitHub Actions artifact. Run the installer, keep **Create a desktop shortcut** selected, then open **XAS Beamtime Decision** from the desktop or Start menu.
+
+The installed application opens in its own window. Choose **Live beamtime** or **Offline review**, select the XAS data folder, and start the session. Closing the application window also stops its local service. User configuration, reference files, and `xas_feedback.sqlite3` are stored under `%LOCALAPPDATA%\XAS Beamtime Decision`, so uninstalling or upgrading does not silently replace review history.
+
+## Run from source
+
+For developers, install Python 3.10+ and Node.js 20+, then open PowerShell in this folder:
 
 ```powershell
 py -m venv .venv
@@ -154,7 +169,7 @@ Add a versioned YAML file under `xas_beamtime/profiles/<ELEMENT>_<EDGE>_<TYPE>/`
 
 Reference spectra remain outside application code. Copy `reference_library/references.example.yaml` to `references.yaml`, add curated datasets under that directory, and record citations/provenance in the manifest. v0.1 exposes this interface but does not yet perform reference fitting.
 
-## Known v0.1 boundaries
+## Known v0.2 boundaries
 
 - Text/CSV-style XAS files are supported; HDF5/NeXus adapters are future parser plugins.
 - No acquisition-system or EPICS commands are implemented.
@@ -164,19 +179,22 @@ Reference spectra remain outside application code. Copy `reference_library/refer
 
 ## Roadmap
 
-### v0.2 — validation and operator experience
+### v0.2 — operator experience (current)
+
+- Athena-style beginner workspace and native folder selection
+- real-time beamtime and offline-review entry points
+- Windows desktop executable, installer, and shortcut workflow
+- unchanged P K-edge XANES v1.2 processing and decision rules
+
+### v0.3 — validation and beamline integration layer
 
 - Add blinded back-testing utilities and structured comparison of algorithm recommendations against human reviews
 - Add import/export of experiment summaries and audit-ready decision reports
-- Improve the live dashboard with scan-level diagnostics and configurable operator views
 - Expand automated tests for malformed, partial, duplicated, and out-of-order files
-
-### v0.3 — beamline integration layer
-
 - Add HDF5/NeXus parser adapters while retaining the universal text-table path
 - Introduce read-only EPICS/acquisition metadata adapters; no automatic acquisition control
 - Add beamline-specific calibration plugins and configuration validation
-- Package and test a reproducible Windows deployment workflow
+- Validate the Windows deployment workflow on representative beamline workstations
 
 ### v0.4 — additional spectroscopy profiles
 

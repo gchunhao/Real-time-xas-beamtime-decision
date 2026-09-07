@@ -186,7 +186,7 @@ class BeamtimeService:
                     "latest": results[-1].to_dict() if results else None,
                 })
             return {
-                "framework_version": "0.1.0",
+                "framework_version": "0.2.0",
                 "mode": "Real-time decision support",
                 "acquisition_control_enabled": False,
                 "watching": self.watcher is not None,

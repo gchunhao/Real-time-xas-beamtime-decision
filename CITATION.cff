@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Gu
     given-names: Chunhao
-version: 0.1.0
+version: 0.2.0
 date-released: 2026-09-07
 url: "https://github.com/gchunhao/real-time-xas-beamtime-decision"
 license: MIT
