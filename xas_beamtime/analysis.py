@@ -20,6 +20,7 @@ from .models import (
     canonical_scan_id,
 )
 from .registry import Profile
+from .normalization_selector import select_normalization
 
 
 def robust_sigma(values: np.ndarray, scale: float = 1.4826) -> float:
@@ -36,7 +37,7 @@ def _odd_window(requested: int, size: int, minimum: int = 5) -> int:
 
 
 class AnalysisEngine:
-    algorithm_version = "xas-analysis-0.1.0"
+    algorithm_version = "xas-analysis-0.2.0-v13-candidate"
 
     def analyze_series(
         self,
@@ -89,15 +90,78 @@ class AnalysisEngine:
         cleaned, anomalies = self._detect_and_mask(energy, aligned, regions, profile)
         weights = self._weights(energy, cleaned, e0_seed, profile, averaging_mode)
         raw_average = np.average(cleaned, axis=0, weights=weights)
-        metrics, normalized = self._metrics(energy, raw_average, profile, anchors)
-        uncertainty = self._uncertainty(energy, cleaned, profile, anchors, metrics.q_hf)
+
+        selector = None
+        selected_pre_offsets: tuple[float, float] | None = None
+        if anchors is None and e0_seed is not None:
+            selector = select_normalization(energy, raw_average, e0_seed, profile)
+            if selector is not None:
+                selected_pre_offsets = (
+                    selector.selected_pre_offsets_ev
+                    if selector.selected_pre_offsets_ev is not None
+                    else selector.preview_pre_offsets_ev
+                )
+
+        metrics, normalized = self._metrics(
+            energy,
+            raw_average,
+            profile,
+            anchors,
+            pre_offsets_override=selected_pre_offsets,
+        )
+
+        if selector is not None and selector.requires_review:
+            # NO QUALITY PROMOTION: review-state normalization is a rough preview
+            # only. Do not emit Route A/B or an automatic usability claim.
+            metrics.route = None
+            metrics.usable_protected_region = False
+            metrics.normalization_mode = selector.state.lower()
+            metrics.diagnostics.extend(
+                [
+                    "Automatic normalization is screening-level only",
+                    "Expert normalization review is required",
+                    "NO QUALITY PROMOTION: selector state cannot upgrade scientific quality",
+                ]
+            )
+
+        uncertainty = self._uncertainty(
+            energy,
+            cleaned,
+            profile,
+            anchors,
+            metrics.q_hf if selector is None or not selector.requires_review else None,
+            pre_offsets_override=selected_pre_offsets,
+        )
         total_seconds = sum(float(scan.metadata.duration_seconds or 0.0) for scan in scans)
         scan_ids = [canonical_scan_id(scan.metadata) for scan in scans]
         from .decision import DecisionEngine
 
-        outcome = DecisionEngine(profile).decide(
-            metrics, len(scans), total_seconds, scans, limits, prior_metrics=prior_metrics
-        )
+        decision_engine = DecisionEngine(profile)
+        if selector is not None and selector.requires_review:
+            if selector.state == "HUMAN_LOCAL_REVIEW_REQUIRED":
+                outcome = decision_engine.review_required(
+                    "Automatic pre-edge baselines are unreliable; local normalization remains plausible under expert review",
+                    [
+                        "HUMAN_LOCAL_REVIEW_REQUIRED",
+                        "NO_QUALITY_PROMOTION",
+                        selector.reason,
+                    ],
+                    suggested_reviewer_action="CONFIRM_LOCAL_NORMALIZATION_AND_PROTECTED_FEATURE",
+                )
+            else:
+                outcome = decision_engine.review_required(
+                    "Automatic normalization context is insufficient; assess overall spectral usability",
+                    [
+                        "NORMALIZATION_REVIEW_REQUIRED",
+                        "NO_QUALITY_PROMOTION",
+                        selector.reason,
+                    ],
+                    suggested_reviewer_action="ASSESS_OVERALL_SPECTRAL_USABILITY",
+                )
+        else:
+            outcome = decision_engine.decide(
+                metrics, len(scans), total_seconds, scans, limits, prior_metrics=prior_metrics
+            )
         source_fingerprints = [self._fingerprint(scan) for scan in scans]
         return AnalysisResult(
             analysis_id=str(uuid.uuid4()),
@@ -144,6 +208,34 @@ class AnalysisEngine:
                 "source_fingerprints": source_fingerprints,
                 "protected_anomalies_auto_removed": False,
                 "actual_duration_used": True,
+                "normalization_selector_state": selector.state if selector is not None else None,
+                "normalization_selector_reason": selector.reason if selector is not None else None,
+                "normalization_selector_diagnostics": selector.diagnostics if selector is not None else None,
+                "normalization_method": (
+                    selector.diagnostics.get("normalization_method")
+                    if selector is not None
+                    else "profile_default"
+                ),
+                "normalization_precision": (
+                    selector.diagnostics.get("normalization_precision")
+                    if selector is not None
+                    else "profile_defined"
+                ),
+                "manual_review_recommended_for_critical_spectra": (
+                    selector.diagnostics.get("manual_review_recommended_for_critical_spectra")
+                    if selector is not None
+                    else False
+                ),
+                "publication_grade_normalization": (
+                    selector.diagnostics.get("publication_grade_normalization")
+                    if selector is not None
+                    else None
+                ),
+                "no_quality_promotion": (
+                    selector.diagnostics.get("no_quality_promotion")
+                    if selector is not None
+                    else False
+                ),
             },
         )
 
@@ -154,6 +246,7 @@ class AnalysisEngine:
         profile: Profile,
         anchors: dict[str, list[float]] | None,
         observed_q_hf: float | None,
+        pre_offsets_override: tuple[float, float] | None = None,
     ) -> dict[str, object]:
         alpha = float(profile.get("averaging.initial_alpha", 0.50))
         base: dict[str, object] = {
@@ -168,7 +261,13 @@ class AnalysisEngine:
         for _ in range(100):
             indices = rng.integers(0, aligned.shape[0], aligned.shape[0])
             average = np.mean(aligned[indices], axis=0)
-            metrics, _ = self._metrics(energy, average, profile, anchors)
+            metrics, _ = self._metrics(
+                energy,
+                average,
+                profile,
+                anchors,
+                pre_offsets_override=pre_offsets_override,
+            )
             if metrics.q_hf is not None and np.isfinite(metrics.q_hf):
                 values.append(metrics.q_hf)
         if len(values) < 20:
@@ -287,13 +386,18 @@ class AnalysisEngine:
         signal: np.ndarray,
         profile: Profile,
         anchors: dict[str, list[float]] | None,
+        pre_offsets_override: tuple[float, float] | None = None,
     ) -> tuple[QualityMetrics, np.ndarray]:
         diagnostics: list[str] = []
         e0 = self._find_e0(energy, signal, profile)
         if e0 is None:
             metrics = QualityMetrics(None, None, None, None, None, None, "unavailable", None, False, ["E0 not found"])
             return metrics, np.full_like(signal, np.nan)
-        pre_offsets = (anchors or {}).get("pre", profile.get("normalization.pre_edge_offsets_ev"))
+        pre_offsets = (
+            pre_offsets_override
+            if pre_offsets_override is not None
+            else (anchors or {}).get("pre", profile.get("normalization.pre_edge_offsets_ev"))
+        )
         post_offsets = (anchors or {}).get("post", profile.get("normalization.post_edge_offsets_ev"))
         pre_mask = (energy >= e0 + pre_offsets[0]) & (energy <= e0 + pre_offsets[1])
         post_mask = (energy >= e0 + post_offsets[0]) & (energy <= e0 + post_offsets[1])
