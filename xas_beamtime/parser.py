@@ -188,6 +188,10 @@ class UniversalXASParser:
             match = re.search(r"(?:scan|s)[-_ ]?(\d+)$", filename, re.IGNORECASE)
             scan_number = int(match.group(1)) if match else None
         sample_id = _metadata_value(header, "sample_id")
+        if sample_id and _normal_key(sample_id) in {
+            "no sample", "none", "null", "unknown", "n a", "na", "not specified",
+        }:
+            sample_id = None
         if sample_id is None and scan_value:
             sample_match = re.match(r"^\s*(.+?)\s*#\s*\d+\s*$", scan_value)
             if sample_match:

@@ -51,6 +51,7 @@ class ParserAnalysisTests(unittest.TestCase):
 
     def test_cls_sxrmb_header_uses_energy_feedback_and_normalized_fluorescence(self) -> None:
         content = """# Scan: Merced2_RA3 #1
+# Sample: [no sample]
 # Scanned Edge:\tP K
 # Note that I0.X is the energy feedback.
 # EnergyFeedback.X\tEnergyFeedback\tBeamlineI0Detector\tTEYDetector\tPKa1\tnorm_PKa1\tnorm_TEYDetector
