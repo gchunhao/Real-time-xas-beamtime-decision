@@ -1,7 +1,7 @@
 schema_version: 1
 id: P_K_XANES_v1.3
 version: "1.3"
-status: freeze-candidate
+status: frozen
 identity:
   element: P
   edge: K
@@ -73,7 +73,7 @@ quality:
     protected_zone_z_threshold: 4.5
     protected_regions:
       - {name: xanes_feature, offsets_ev: [0.0, 23.0]}
-    # Held unchanged from v1.2 for the freeze-candidate replay lineage.
+    # Held unchanged from v1.2 for the frozen v1.3 validation lineage.
     safe_regions:
       - {name: local_pre, offsets_ev: [-10.0, -4.0]}
       - {name: post_edge, offsets_ev: [27.0, 50.0]}
