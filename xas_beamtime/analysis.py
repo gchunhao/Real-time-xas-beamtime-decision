@@ -37,7 +37,7 @@ def _odd_window(requested: int, size: int, minimum: int = 5) -> int:
 
 
 class AnalysisEngine:
-    algorithm_version = "xas-analysis-0.2.0-v13-candidate"
+    algorithm_version = "xas-analysis-0.2.0"
 
     def analyze_series(
         self,
