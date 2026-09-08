@@ -22,7 +22,7 @@ class V13FreezeCandidateTests(unittest.TestCase):
         self.v13 = registry.get("P_K_XANES_v1.3")
 
     def test_candidate_profile_preserves_route_thresholds(self) -> None:
-        self.assertEqual(self.v13.get("status"), "freeze-candidate")
+        self.assertEqual(self.v13.get("status"), "frozen")
         self.assertEqual(
             self.v13.get("energy.edge_search_window_ev"),
             [2147.5, 2152.9],
