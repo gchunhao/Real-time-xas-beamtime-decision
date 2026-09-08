@@ -44,6 +44,8 @@ class WindowsPackagingTests(unittest.TestCase):
         self.assertIn('"test_data/incoming"', spec)
         self.assertIn('webview.create_window', launcher)
         self.assertIn('create_file_dialog', launcher)
+        self.assertIn('self._window = window', launcher)
+        self.assertNotIn('self.window = window', launcher)
         self.assertIn('demo_source', launcher)
         self.assertIn('profile_id: P_K_XANES_v1.3', launcher)
         self.assertNotIn('webbrowser.open', launcher)

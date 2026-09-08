@@ -101,25 +101,28 @@ class DesktopBridge:
     """Minimal native-dialog surface exposed to the bundled React application."""
 
     def __init__(self) -> None:
-        self.window = None
+        # pywebview recursively exposes every public js_api attribute. Keeping the
+        # native Window public makes it walk WinForms/WebView2 objects off the UI
+        # thread, which can crash msedgewebview2 during startup.
+        self._window = None
 
     def bind(self, window) -> None:
-        self.window = window
+        self._window = window
 
     def select_folder(self) -> str | None:
         import webview
 
-        if self.window is None:
+        if self._window is None:
             return None
-        selected = self.window.create_file_dialog(webview.FileDialog.FOLDER)
+        selected = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         return str(selected) if selected else None
 
     def select_files(self) -> list[str]:
         import webview
 
-        if self.window is None:
+        if self._window is None:
             return []
-        selected = self.window.create_file_dialog(
+        selected = self._window.create_file_dialog(
             webview.FileDialog.OPEN,
             allow_multiple=True,
             file_types=("XAS data (*.dat;*.txt;*.csv;*.xas;*.xy)", "All files (*.*)"),
