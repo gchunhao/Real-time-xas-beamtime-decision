@@ -216,6 +216,31 @@ class BeamtimeService:
             {"alpha_global": outcome.alpha_global, "alpha_recent": outcome.alpha_recent, "alpha_pred": outcome.alpha_pred}
         )
 
+    def _stamp_calibration_provenance(self, result: AnalysisResult) -> None:
+        calibration = self.parser.calibration
+        raw = calibration.raw or {}
+        calibration_file = self.config.path(
+            "beamline.calibration_file",
+            "./config/beamline_calibration.example.yaml",
+        )
+        result.provenance.update(
+            {
+                "beamline": calibration.beamline,
+                "energy_calibration_configured": calibration.beamline is not None,
+                "energy_calibration_applied": bool(
+                    abs(float(calibration.energy_offset_ev)) > 1e-12
+                    or abs(float(calibration.energy_scale) - 1.0) > 1e-12
+                ),
+                "energy_offset_ev": float(calibration.energy_offset_ev),
+                "energy_scale": float(calibration.energy_scale),
+                "calibration_file": str(calibration_file),
+                "calibration_schema_version": raw.get("schema_version"),
+                "calibration_standard": raw.get("calibration_standard"),
+                "calibration_timestamp": raw.get("calibration_timestamp"),
+                "calibration_notes": raw.get("notes"),
+            }
+        )
+
     def _recompute_production(
         self, sample_key: str, profile: Profile | None = None, trigger_scan_id: str | None = None
     ) -> AnalysisResult:
@@ -252,6 +277,7 @@ class BeamtimeService:
             result.physical_scan_count = len(ordered)
             result.usable_scan_count = len(usable)
             result.analysis_context = AnalysisContext.PRODUCTION
+            self._stamp_calibration_provenance(result)
 
         reason_codes: list[str] = []
         if blocking:
@@ -327,6 +353,8 @@ class BeamtimeService:
             latest.analysis_context = AnalysisContext.REVIEW
             latest.physical_scan_count = len(scans)
             latest.usable_scan_count = len(results[-1].scan_ids)
+            for result in results:
+                self._stamp_calibration_provenance(result)
             self._review_results[sample_id] = results
             profile_version_id = self.storage.ensure_profile(self.profile)
             algorithm_version_id = self.storage.ensure_algorithm(
