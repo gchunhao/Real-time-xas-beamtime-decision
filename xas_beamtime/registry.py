@@ -75,6 +75,11 @@ class ProfileRegistry:
 
     def list(self) -> list[dict[str, Any]]:
         return [
-            {"id": p.id, "identity": p.data["identity"], "version": p.data.get("version")}
+            {
+                "id": p.id,
+                "identity": p.data["identity"],
+                "version": p.data.get("version"),
+                "status": p.data.get("status"),
+            }
             for p in self._profiles.values()
         ]
