@@ -16,7 +16,8 @@ test("loads all resource collections and all review queue states", async () => {
   const bundle = await loadResources();
   assert.equal(bundle.scheduler.mode, "SIMULATION");
   assert.equal(bundle.workflow.simulation_only, true);
-  for (const path of ["/api/projects", "/api/samples", "/api/samples?archived=true", "/api/scans", "/api/decisions", "/api/review-queue?status=PENDING", "/api/review-queue?status=RESOLVED", "/api/review-queue?status=SUPERSEDED", "/api/audit", "/api/workflow"]) assert.ok(paths.includes(path), path);
+  for (const path of ["/api/projects", "/api/samples", "/api/scans", "/api/decisions", "/api/review-queue?status=PENDING", "/api/review-queue?status=RESOLVED", "/api/review-queue?status=SUPERSEDED", "/api/audit", "/api/workflow"]) assert.ok(paths.includes(path), path);
+  assert.ok(!paths.includes("/api/samples?archived=true"), "archived datasets are loaded only on demand");
 });
 
 test("watch request uses backend seconds contract and averaging mode", async () => {

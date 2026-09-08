@@ -299,7 +299,6 @@ export interface ResourceBundle {
   projects: ProjectResource[];
   sessions: SessionResource[];
   samples: SampleResource[];
-  archivedSamples: SampleResource[];
   scans: ScanResource[];
   decisions: DecisionResource[];
   reviewQueue: ReviewQueueItem[];

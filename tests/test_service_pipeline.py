@@ -191,11 +191,15 @@ class ServicePipelineTests(unittest.TestCase):
                 spectrum = service.scan_spectrum(scan["id"])
                 self.assertEqual(len(spectrum["energy"]), len(spectrum["raw"]))
                 self.assertEqual(len(spectrum["energy"]), len(spectrum["normalized"]))
+            first_scan_id = state["samples"][0]["scans"][0]["id"]
             sample_id = service.samples()[0]["id"]
             persisted = service.sample_spectrum(sample_id)
             self.assertEqual(len(persisted["energy"]), len(persisted["raw"]))
             self.assertEqual(len(persisted["energy"]), len(persisted["normalized"]))
             service._scans.clear()
+            recovered_scan = service.scan_spectrum(first_scan_id)
+            self.assertTrue(recovered_scan["recovered_from_source"])
+            self.assertGreater(len(recovered_scan["energy"]), 0)
             self.assertEqual(service.sample_spectrum(sample_id), persisted)
             with service.storage._lock:
                 service.storage._connection.execute(

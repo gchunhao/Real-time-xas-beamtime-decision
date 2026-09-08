@@ -688,7 +688,18 @@ class BeamtimeService:
                     "scan_id": scan_id,
                     **self._single_scan_arrays(scan),
                 }
-        raise KeyError(scan_id)
+        record = self.storage.get_scan_record(scan_id)
+        if record is None:
+            raise KeyError(scan_id)
+        source = Path(str(record["source_path"]))
+        if not source.is_file():
+            raise KeyError(scan_id)
+        scan = self.parser.parse(source)
+        return {
+            "scan_id": scan_id,
+            "recovered_from_source": True,
+            **self._single_scan_arrays(scan),
+        }
 
     def sample_spectrum(self, sample_id: str) -> dict[str, Any]:
         spectrum = self.storage.latest_sample_spectrum(sample_id)

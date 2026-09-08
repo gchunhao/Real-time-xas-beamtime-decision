@@ -95,12 +95,11 @@ export const api = {
 };
 
 export async function loadResources(sessionId?: string | null): Promise<ResourceBundle> {
-  const [projects, sessions, samples, archivedSamples, scans, decisions, pending, resolved, superseded, reviews, audit, scheduler, workflow] =
+  const [projects, sessions, samples, scans, decisions, pending, resolved, superseded, reviews, audit, scheduler, workflow] =
     await Promise.all([
       api.projects(),
       api.sessions(),
       api.samples(sessionId),
-      api.samples(sessionId, true),
       api.scans(),
       api.decisions(),
       api.queue("PENDING"),
@@ -117,7 +116,6 @@ export async function loadResources(sessionId?: string | null): Promise<Resource
     projects,
     sessions,
     samples,
-    archivedSamples,
     scans: scans.filter(scan => sampleIds.has(scan.sample_id)),
     decisions: decisions.filter(decision => sampleIds.has(decision.sample_id)),
     reviewQueue: [...pending, ...resolved, ...superseded].filter(item => sampleIds.has(item.sample_id)),
