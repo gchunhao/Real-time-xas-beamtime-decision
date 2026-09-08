@@ -535,7 +535,7 @@ class BeamtimeService:
                     }
                 )
             return {
-                "framework_version": "0.2.0",
+                "framework_version": "0.2.1",
                 "mode": self.runtime_mode,
                 "acquisition_control_enabled": False,
                 "scheduler_mode": "SIMULATION",

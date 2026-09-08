@@ -4,6 +4,7 @@
 
 ## [0.2.1] - 2026-09-08
 
+- Aligned application, API, frontend, citation, window-title, and Windows-installer version metadata at `0.2.1`.
 - Fixed incomplete and placeholder sample-name handling during offline import.
 - Added explicit per-file import failure reporting.
 - Changed Offline Analysis to list and compare individual scans.

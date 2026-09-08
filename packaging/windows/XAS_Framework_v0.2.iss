@@ -1,5 +1,5 @@
 #define MyAppName "XAS Framework"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion "0.2.1"
 #define MyAppPublisher "Chunhao Gu"
 #define MyAppExeName "XASFramework.exe"
 
@@ -12,7 +12,7 @@ DefaultDirName={autopf}\XAS Framework
 DefaultGroupName=XAS Framework
 DisableProgramGroupPage=yes
 OutputDir=..\..\build\installer
-OutputBaseFilename=XAS_Framework_v0.2_Setup
+OutputBaseFilename=XAS_Framework_v0.2.1_Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

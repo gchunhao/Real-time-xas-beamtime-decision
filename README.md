@@ -234,13 +234,13 @@ The v0.2 source and Windows packaging path have been exercised through local and
 | Windows installer artifact creation | Passed |
 | Acquisition control enabled | No |
 
-The Windows workflow builds the application with PyInstaller, creates `XAS_Framework_v0.2_Setup.exe` with Inno Setup, starts the packaged application in smoke-test mode, verifies its API and safety state, and uploads the installer as a GitHub Actions artifact.
+The Windows workflow builds the application with PyInstaller, creates `XAS_Framework_v0.2.1_Setup.exe` with Inno Setup, starts the packaged application in smoke-test mode, verifies its API and safety state, and uploads the installer as a GitHub Actions artifact.
 
 ## Install and run
 
 ### Windows installer
 
-Download the `XAS_Framework_v0.2_Setup` artifact from the **Windows installer** GitHub Actions workflow. Run `XAS_Framework_v0.2_Setup.exe`, keep **Create a desktop shortcut** selected, and launch **XAS Framework**.
+Download `XAS_Framework_v0.2.1_Setup.exe` from the [v0.2.1 release](https://github.com/gchunhao/real-time-xas-beamtime-decision/releases/tag/v0.2.1), keep **Create a desktop shortcut** selected, and launch **XAS Framework**.
 
 Runtime configuration, incoming data, reference files, and SQLite history are stored under:
 

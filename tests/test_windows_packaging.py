@@ -5,10 +5,27 @@ from pathlib import Path
 
 
 class WindowsPackagingTests(unittest.TestCase):
+    def test_release_version_is_consistent_across_runtime_and_packaging(self) -> None:
+        root = Path(__file__).parent.parent
+        expected = "0.2.1"
+        checks = {
+            "python package": root / "xas_beamtime" / "__init__.py",
+            "API": root / "xas_beamtime" / "api.py",
+            "service state": root / "xas_beamtime" / "service.py",
+            "Python metadata": root / "pyproject.toml",
+            "frontend metadata": root / "frontend" / "package.json",
+            "installer": root / "packaging" / "windows" / "XAS_Framework_v0.2.iss",
+            "desktop launcher": root / "packaging" / "windows" / "xas_launcher.py",
+        }
+        for label, path in checks.items():
+            with self.subTest(label=label):
+                self.assertIn(expected, path.read_text(encoding="utf-8"))
+
     def test_installer_creates_desktop_shortcut_and_uses_bundled_app(self) -> None:
         root = Path(__file__).parent.parent
         installer = (root / "packaging" / "windows" / "XAS_Framework_v0.2.iss").read_text(encoding="utf-8")
-        self.assertIn('OutputBaseFilename=XAS_Framework_v0.2_Setup', installer)
+        self.assertIn('#define MyAppVersion "0.2.1"', installer)
+        self.assertIn('OutputBaseFilename=XAS_Framework_v0.2.1_Setup', installer)
         self.assertIn('Name: "desktopicon"', installer)
         self.assertIn('{autodesktop}\\XAS Framework', installer)
         self.assertIn('build\\dist\\XASFramework\\*', installer)
@@ -22,7 +39,7 @@ class WindowsPackagingTests(unittest.TestCase):
         self.assertIn('"acquisition_control_enabled":false', launcher)
         self.assertIn('available_port(host)', launcher)
         self.assertIn('windows-latest', workflow)
-        self.assertIn('XAS_Framework_v0.2_Setup.exe', workflow)
+        self.assertIn('XAS_Framework_v0.2.1_Setup.exe', workflow)
         self.assertIn('profile_id: P_K_XANES_v1.3', windows_config)
 
     def test_scipy_runtime_modules_and_native_failures_are_guarded(self) -> None:

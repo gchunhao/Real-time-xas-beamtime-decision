@@ -159,7 +159,7 @@ def run(smoke_test: bool = False) -> int:
 
         bridge = DesktopBridge()
         window = webview.create_window(
-            "XAS Framework v0.2 Prototype",
+            "XAS Framework v0.2.1 Prototype",
             f"http://{host}:{port}",
             js_api=bridge,
             width=1500,

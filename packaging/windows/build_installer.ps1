@@ -42,7 +42,7 @@ if (-not (Test-Path $Iscc)) { throw "Inno Setup 6 was not found: $Iscc" }
 & $Iscc "packaging\windows\XAS_Framework_v0.2.iss"
 Assert-LastExitCode "Inno Setup build"
 
-$Setup = Join-Path $Root "build\installer\XAS_Framework_v0.2_Setup.exe"
+$Setup = Join-Path $Root "build\installer\XAS_Framework_v0.2.1_Setup.exe"
 if (-not (Test-Path $Setup)) { throw "Installer was not generated" }
 Get-FileHash $Setup -Algorithm SHA256
 Write-Host "Installer ready: $Setup"

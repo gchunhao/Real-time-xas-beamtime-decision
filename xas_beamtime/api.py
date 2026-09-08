@@ -87,7 +87,7 @@ def create_app() -> FastAPI:
         finally:
             service.close()
 
-    app = FastAPI(title="Real-time XAS Beamtime Decision Framework", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="Real-time XAS Beamtime Decision Framework", version="0.2.1", lifespan=lifespan)
     app.state.beamtime = service
 
     # Backward-compatible v0.1/v0.2 dashboard endpoints.
