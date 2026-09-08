@@ -23,7 +23,7 @@ export function App() {
   const openSample = (key: string) => { setSampleKey(key); setPage("live"); setLiveView("qc"); };
   const activeResult = data.state.samples.find(s => s.latest)?.latest;
   const activeProfile = activeResult?.profile_id ?? "P_K_XANES_v1.2";
-  const activeProfileStatus = activeProfile === "P_K_XANES_v1.3" ? "Freeze candidate" : "Frozen";
+  const activeProfileStatus = "Frozen";
   return <div className="app-shell"><Sidebar page={page} setPage={setPage} pending={data.resources.workflow.review_queue_count}/><div className="workspace-shell"><Topbar state={data.state} resources={data.resources} busy={data.busy} refresh={data.refresh}/>{data.error && <div className="error-banner"><AlertTriangle/>{data.error}</div>}<main className="main-surface">
     {page === "home" && <HomePage state={data.state} resources={data.resources} go={setPage}/>}
     {page === "live" && <LiveWorkspace state={data.state} resources={data.resources} sampleKey={sampleKey} setSampleKey={setSampleKey} view={liveView} setView={setLiveView} saveReview={data.saveReview} reanalyze={data.reanalyze} busy={data.busy}/>}
