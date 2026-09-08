@@ -64,9 +64,10 @@ class DecisionEngine:
         predicted = self._predict_fastest(metrics, scan_count, alpha_pred)
 
         if metrics.route in {"A", "B"}:
+            profile_label = self.profile.id
             return DecisionOutcome(
                 recommendation=ScientificDecision.STOP,
-                reason=f"Frozen P_K_XANES v1.2 Route {metrics.route} target reached",
+                reason=f"{profile_label} Route {metrics.route} target reached",
                 predicted_n_quant=scan_count,
                 remaining_scan_budget=remaining_scans,
                 remaining_time_seconds=remaining_time,
@@ -75,14 +76,14 @@ class DecisionEngine:
                 auto_execution_eligibility=AutoExecutionEligibility.ELIGIBLE,
                 resource_constraint=resource_constraint,
                 effective_scheduler_action=SchedulerAction.ADVANCE_TO_NEXT_SAMPLE,
-                reason_codes=["V12_TARGET_ATTAINED"],
+                reason_codes=[self._target_reason_code("TARGET_ATTAINED")],
                 confidence="HIGH",
                 alpha_global=alpha_global,
                 alpha_recent=alpha_recent,
                 alpha_pred=alpha_pred,
             )
 
-        reason_codes: list[str] = ["V12_TARGET_NOT_REACHED"]
+        reason_codes: list[str] = [self._target_reason_code("TARGET_NOT_REACHED")]
         if metrics.e0 is None:
             reason = "Continue: E0 or required windows are not yet evaluable"
             reason_codes.append("E0_NOT_EVALUABLE")
@@ -93,7 +94,7 @@ class DecisionEngine:
             reason = "Scientific target not reached; available resource budget is insufficient for the current forecast"
             reason_codes.append("FORECAST_EXCEEDS_RESOURCE_BUDGET")
         else:
-            reason = "Continue: frozen quantitative target has not yet been reached"
+            reason = f"Continue: {self.profile.id} quantitative target has not yet been reached"
 
         if predicted is None and scan_count >= 2:
             confidence = "LOW"
@@ -199,6 +200,11 @@ class DecisionEngine:
         else:
             constraint = ResourceConstraint.NONE
         return remaining_scans, remaining_time, constraint, effective_remaining
+
+    def _target_reason_code(self, suffix: str) -> str:
+        version = str(self.profile.data.get("version") or "").replace(".", "")
+        prefix = f"V{version}" if version else "PROFILE"
+        return f"{prefix}_{suffix}"
 
     @staticmethod
     def _minimum_known(a: int | None, b: int | None) -> int | None:
