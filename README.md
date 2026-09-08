@@ -61,7 +61,7 @@ Ordinary Windows users can install `XAS_Framework_v0.2_Setup.exe`, keep the defa
 A central design choice is to separate two questions that are often mixed together:
 
 - **Is the spectrum scientifically adequate?**  
-  Answered by the frozen scan-level quality profile, currently `P_K_XANES_v1.2`.
+  Answered by a frozen scan-level quality profile. `P_K_XANES_v1.3` is the latest frozen P K-edge XANES profile; `P_K_XANES_v1.2` is retained for reproducibility and remains the default runtime profile until an explicit rollout changes configuration.
 
 - **What should the experiment do next?**  
   Handled by a separately versioned Acquisition Decision Policy (ADP), resource constraints, workflow state, and human review.
@@ -82,9 +82,21 @@ flowchart TD
 
 Uncertainty, diagnostics, provenance, beamline calibration, and the human-learning loop cut across all seven layers.
 
-### First frozen profile: P K-edge XANES
+### Frozen P K-edge XANES profiles
 
-`P_K_XANES_v1.2` is stored as a standalone, versioned YAML profile. Among its implemented rules:
+`P_K_XANES_v1.2` remains immutable for reproducibility. `P_K_XANES_v1.3` is the latest frozen profile and adds a narrower validated E0 search window plus a four-state normalization-path selector while preserving the Route A/B scientific thresholds. Both are stored as standalone, versioned YAML profiles.
+
+For v1.3:
+
+- `E0` search is limited to 2147.5–2152.9 eV after beamline energy calibration when available.
+- The primary pre-edge window is `E0-20` to `E0-10` eV; the fallback is `E0-10` to `E0-5` eV.
+- Selector states are `WIDE_PRE`, `NEAR_PRE`, `HUMAN_LOCAL_REVIEW_REQUIRED`, and `REVIEW_REQUIRED`.
+- Automatic normalization is explicitly screening-level and approximate; critical spectra require expert verification.
+- `NO QUALITY PROMOTION` prevents a normalization-path state from upgrading scientific quality or clearing protected anomalies.
+- Review states suppress automatic Route and `N_quant` claims until expert normalization review.
+- Route A/Route B thresholds are unchanged from v1.2.
+
+Shared frozen quality rules include:
 
 - `E0` is determined from the smoothed first-derivative maximum in the configured P K-edge window.
 - Local pre-edge, white-line, protected feature, and post-edge regions are defined relative to `E0`.
@@ -133,7 +145,7 @@ The framework is designed so that new scientific and facility-specific capabilit
 |---|---|---|
 | Profile registry | Versioned `(element, edge, scan_type)` matching | Additional element/edge profiles without changing orchestration or storage |
 | Parser layer | Text/CSV-style XAS tables with metadata and filename fallback | HDF5, NeXus, and beamline-specific formats |
-| Analysis engine | P K-edge XANES v1.2 metric contract | New metric families and profile-specific uncertainty models |
+| Analysis engine | Frozen P K-edge XANES v1.2 and v1.3 contracts | New metric families and profile-specific uncertainty models |
 | Decision policy | Frozen rules plus ADP Shadow evaluation | Independently calibrated, versioned policies |
 | Beamline calibration | Configuration interface and provenance hooks | Energy calibration and facility-specific corrections |
 | Acquisition interface | Simulation and read-only workflow projection | Read-only EPICS/acquisition metadata adapters after validation |
@@ -186,7 +198,8 @@ xas_beamtime/
   scheduler.py                  simulated scheduler actions
   service.py                    orchestration and workflow projection
   storage.py                    SQLite provenance and review loop
-  profiles/P_K_XANES/v1_2.yaml frozen first profile
+  profiles/P_K_XANES/v1_2.yaml frozen legacy profile
+  profiles/P_K_XANES/v1_3.yaml frozen current profile
 ```
 
 ### Data and provenance

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### P_K_XANES v1.3 frozen scientific profile
+
+- Froze `P_K_XANES_v1.3` after implementation-level regression, UI/provenance verification, and freeze audit.
+- Narrowed the P K-edge E0 search window to 2147.5–2152.9 eV.
+- Added dual pre-edge selection: `WIDE_PRE` (E0-20 to E0-10 eV) and `NEAR_PRE` (E0-10 to E0-5 eV).
+- Added four normalization-path states: `WIDE_PRE`, `NEAR_PRE`, `HUMAN_LOCAL_REVIEW_REQUIRED`, and `REVIEW_REQUIRED`.
+- Added normalization-context diagnostics for post-edge and feature regions.
+- Added mandatory `NO QUALITY PROMOTION` behavior and independent protected-anomaly review.
+- Marked automatic normalization as approximate, screening-level decision support rather than publication-grade processing.
+- Added energy-calibration provenance and operator UI visibility.
+- Preserved all Route A/Route B thresholds from v1.2; full-selector replay produced zero Route changes across automatic-normalization states.
+- Retained `P_K_XANES_v1.2` unchanged for reproducibility and as the default configured runtime profile pending explicit rollout.
+
+
 - Close SQLite resources deterministically so Windows can remove temporary test databases.
 - Fixed installed shortcut startup when the windowed executable has no console streams;
   launcher output is now written to `%LOCALAPPDATA%\XAS Framework\runtime\launcher.log`.
