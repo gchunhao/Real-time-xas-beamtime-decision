@@ -637,8 +637,31 @@ class BeamtimeService:
     def sessions(self, project_id: str | None = None) -> list[dict[str, Any]]:
         return self.storage.list_sessions(project_id)
 
-    def samples(self, session_id: str | None = None) -> list[dict[str, Any]]:
-        return self.storage.list_samples(session_id)
+    def samples(self, session_id: str | None = None, archived: bool = False) -> list[dict[str, Any]]:
+        return self.storage.list_samples(session_id, archived=archived)
+
+    def set_sample_archived(self, sample_id: str, archived: bool, reason: str | None = None) -> dict[str, Any]:
+        row = self.storage.get_sample(sample_id)
+        if row is None:
+            raise KeyError(sample_id)
+        if archived and self.watcher is not None:
+            raise ValueError("Pause live monitoring before archiving a dataset")
+        updated = self.storage.set_sample_archived(sample_id, archived, reason)
+        logical_key = str(row.get("logical_sample_key") or row.get("sample_key"))
+        if archived:
+            with self._lock:
+                self._scans.pop(logical_key, None)
+                self._results.pop(logical_key, None)
+                self._review_results.pop(logical_key, None)
+                self._sample_db_ids.pop(logical_key, None)
+                self.scheduler.held_samples.discard(logical_key)
+        self._event(
+            "sample_archived" if archived else "sample_restored",
+            logical_key,
+            sample_id=sample_id,
+            reason=reason,
+        )
+        return updated
 
     def sample(self, sample_id: str) -> dict[str, Any]:
         row = self.storage.get_sample(sample_id)

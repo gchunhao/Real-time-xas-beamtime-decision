@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS sample (
   profile_version_id TEXT REFERENCES profile_version(id), created_at TEXT NOT NULL,
   logical_sample_key TEXT, base_sample_name TEXT, spot_id TEXT,
   grouping_confidence REAL, grouping_method TEXT, requires_grouping_confirmation INTEGER NOT NULL DEFAULT 0,
+  archived_at TEXT, archived_reason TEXT,
   UNIQUE(experiment_id, sample_key)
 );
 CREATE TABLE IF NOT EXISTS scan (
@@ -166,6 +167,8 @@ class Storage:
         self._add_column("sample", "grouping_method TEXT")
         self._add_column("sample", "requires_grouping_confirmation INTEGER NOT NULL DEFAULT 0")
         self._add_column("sample", "session_id TEXT")
+        self._add_column("sample", "archived_at TEXT")
+        self._add_column("sample", "archived_reason TEXT")
         self._add_column("scan", "disposition TEXT NOT NULL DEFAULT 'USABLE'")
         self._add_column("scan", "disposition_reason TEXT")
         self._add_column("scan", "replacement_for_scan_id TEXT")
@@ -212,6 +215,7 @@ class Storage:
         );
         CREATE INDEX IF NOT EXISTS ix_review_queue_status ON review_queue(status, enqueued_at);
         CREATE INDEX IF NOT EXISTS ix_session_project ON session(project_id, started_at);
+        CREATE INDEX IF NOT EXISTS ix_sample_archive ON sample(archived_at, session_id, created_at);
         """)
         self._connection.execute("INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (?,?)", (2, utc_now()))
 
@@ -303,8 +307,12 @@ class Storage:
         metadata = spectrum.metadata
         sample_key = metadata.logical_sample_key or metadata.sample_id or Path(metadata.source_path).stem
         with self._lock, self._connection:
-            row = self._one("SELECT id FROM sample WHERE experiment_id=? AND sample_key=?", (experiment_id, sample_key))
+            row = self._one("SELECT id, archived_at FROM sample WHERE experiment_id=? AND sample_key=?", (experiment_id, sample_key))
             if row:
+                if row["archived_at"] is not None:
+                    self._connection.execute(
+                        "UPDATE sample SET archived_at=NULL, archived_reason=NULL WHERE id=?", (row["id"],)
+                    )
                 return str(row["id"])
             identifier = str(uuid.uuid4())
             self._connection.execute(
@@ -628,7 +636,7 @@ class Storage:
     def list_sessions(self, project_id: str | None = None) -> list[dict[str, Any]]:
         sql = """SELECT se.*, p.name AS project_name, COUNT(DISTINCT s.id) AS sample_count
                  FROM session se JOIN project p ON p.id=se.project_id
-                 LEFT JOIN sample s ON s.session_id=se.id"""
+                 LEFT JOIN sample s ON s.session_id=se.id AND s.archived_at IS NULL"""
         params: tuple[Any, ...] = ()
         if project_id:
             sql += " WHERE se.project_id=?"
@@ -645,17 +653,39 @@ class Storage:
             )
             return dict(row) if row else None
 
-    def list_samples(self, session_id: str | None = None) -> list[dict[str, Any]]:
+    def list_samples(self, session_id: str | None = None, archived: bool = False) -> list[dict[str, Any]]:
         sql = """SELECT s.*, COUNT(DISTINCT sc.id) AS physical_scan_count,
                  SUM(CASE WHEN sc.disposition='USABLE' THEN 1 ELSE 0 END) AS usable_scan_count
                  FROM sample s LEFT JOIN scan sc ON sc.sample_id=s.id"""
-        params: tuple[Any, ...] = ()
+        conditions = ["s.archived_at IS NOT NULL" if archived else "s.archived_at IS NULL"]
+        params: list[Any] = []
         if session_id:
-            sql += " WHERE s.session_id=?"
-            params = (session_id,)
+            conditions.append("s.session_id=?")
+            params.append(session_id)
+        sql += " WHERE " + " AND ".join(conditions)
         sql += " GROUP BY s.id ORDER BY s.created_at DESC"
         with self._lock:
-            return [dict(row) for row in self._connection.execute(sql, params).fetchall()]
+            return [dict(row) for row in self._connection.execute(sql, tuple(params)).fetchall()]
+
+    def set_sample_archived(self, sample_id: str, archived: bool, reason: str | None = None) -> dict[str, Any]:
+        with self._lock, self._connection:
+            row = self._one("SELECT * FROM sample WHERE id=?", (sample_id,))
+            if row is None:
+                raise KeyError(sample_id)
+            archived_at = utc_now() if archived else None
+            self._connection.execute(
+                "UPDATE sample SET archived_at=?, archived_reason=? WHERE id=?",
+                (archived_at, reason if archived else None, sample_id),
+            )
+            self._save_audit_event_locked(
+                "sample_archived" if archived else "sample_restored",
+                sample_id,
+                None,
+                None,
+                {"reason": reason} if reason else {},
+            )
+            updated = self._one("SELECT * FROM sample WHERE id=?", (sample_id,))
+            return dict(updated) if updated else {}
 
     def get_sample(self, sample_id_or_key: str) -> dict[str, Any] | None:
         with self._lock:
@@ -675,6 +705,8 @@ class Storage:
         if sample_id:
             sql += " WHERE sc.sample_id=? OR s.sample_key=? OR s.logical_sample_key=?"
             params = (sample_id, sample_id, sample_id)
+        else:
+            sql += " WHERE s.archived_at IS NULL"
         sql += " ORDER BY sc.created_at DESC"
         with self._lock:
             return [dict(row) for row in self._connection.execute(sql, params).fetchall()]
@@ -721,6 +753,8 @@ class Storage:
         if sample_id:
             sql += " WHERE ca.sample_id=? OR s.sample_key=? OR s.logical_sample_key=?"
             params.extend([sample_id, sample_id, sample_id])
+        else:
+            sql += " WHERE s.archived_at IS NULL"
         sql += " ORDER BY d.created_at DESC LIMIT ?"
         params.append(limit)
         with self._lock:
@@ -743,9 +777,11 @@ class Storage:
                  FROM review_queue rq JOIN sample s ON s.id=rq.sample_id
                  LEFT JOIN decision d ON d.id=rq.decision_id"""
         params: list[Any] = []
+        conditions = ["s.archived_at IS NULL"]
         if status:
-            sql += " WHERE rq.status=?"
+            conditions.append("rq.status=?")
             params.append(status)
+        sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY rq.enqueued_at DESC LIMIT ?"
         params.append(limit)
         with self._lock:
@@ -770,6 +806,7 @@ class Storage:
         JOIN cumulative_average ca ON ca.id=d.cumulative_average_id
         JOIN sample s ON s.id=ca.sample_id
         JOIN profile_version pv ON pv.id=d.profile_version_id
+        WHERE s.archived_at IS NULL
         ORDER BY hr.created_at DESC LIMIT ?
         """
         with self._lock:

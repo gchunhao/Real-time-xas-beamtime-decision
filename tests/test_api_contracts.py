@@ -39,6 +39,7 @@ class ApiContractTests(unittest.TestCase):
                 "/api/sessions/{session_id}",
                 "/api/samples",
                 "/api/samples/{sample_id}",
+                "/api/samples/{sample_id}/archive",
                 "/api/samples/{sample_id}/scans",
                 "/api/samples/{sample_id}/decisions",
                 "/api/samples/{sample_id}/spectrum",

@@ -41,7 +41,12 @@ export const api = {
   state: () => request<AppState>("/api/state"),
   projects: () => request<ProjectResource[]>("/api/projects"),
   sessions: () => request<SessionResource[]>("/api/sessions"),
-  samples: (sessionId?: string | null) => request<SampleResource[]>(sessionId ? `/api/samples?session_id=${encodeURIComponent(sessionId)}` : "/api/samples"),
+  samples: (sessionId?: string | null, archived = false) => {
+    const query = new URLSearchParams();
+    if (sessionId) query.set("session_id", sessionId);
+    if (archived) query.set("archived", "true");
+    return request<SampleResource[]>(`/api/samples${query.size ? `?${query}` : ""}`);
+  },
   sampleScans: (id: string) => request<ScanResource[]>(`/api/samples/${id}/scans`),
   sampleDecisions: (id: string) => request<DecisionResource[]>(`/api/samples/${id}/decisions`),
   sampleSpectrum: (id: string) => request<SpectrumResource>(`/api/samples/${encodeURIComponent(id)}/spectrum`),
@@ -82,14 +87,20 @@ export const api = {
       body: JSON.stringify({ paths, recursive: true, averaging_mode: averagingMode }),
     }),
   importDemo: () => request<OfflineImportReport>("/api/import/demo", { method: "POST" }),
+  archiveSample: (id: string, archived: boolean, reason?: string) =>
+    request<SampleResource>(`/api/samples/${encodeURIComponent(id)}/archive`, {
+      method: "PATCH",
+      body: JSON.stringify({ archived, reason: reason || null }),
+    }),
 };
 
 export async function loadResources(sessionId?: string | null): Promise<ResourceBundle> {
-  const [projects, sessions, samples, scans, decisions, pending, resolved, superseded, reviews, audit, scheduler, workflow] =
+  const [projects, sessions, samples, archivedSamples, scans, decisions, pending, resolved, superseded, reviews, audit, scheduler, workflow] =
     await Promise.all([
       api.projects(),
       api.sessions(),
       api.samples(sessionId),
+      api.samples(sessionId, true),
       api.scans(),
       api.decisions(),
       api.queue("PENDING"),
@@ -106,6 +117,7 @@ export async function loadResources(sessionId?: string | null): Promise<Resource
     projects,
     sessions,
     samples,
+    archivedSamples,
     scans: scans.filter(scan => sampleIds.has(scan.sample_id)),
     decisions: decisions.filter(decision => sampleIds.has(decision.sample_id)),
     reviewQueue: [...pending, ...resolved, ...superseded].filter(item => sampleIds.has(item.sample_id)),

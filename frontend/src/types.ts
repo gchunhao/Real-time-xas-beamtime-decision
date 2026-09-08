@@ -193,6 +193,8 @@ export interface SampleResource {
   grouping_confidence?: number | null;
   created_at?: string;
   updated_at?: string;
+  archived_at?: string | null;
+  archived_reason?: string | null;
   [key: string]: unknown;
 }
 
@@ -297,6 +299,7 @@ export interface ResourceBundle {
   projects: ProjectResource[];
   sessions: SessionResource[];
   samples: SampleResource[];
+  archivedSamples: SampleResource[];
   scans: ScanResource[];
   decisions: DecisionResource[];
   reviewQueue: ReviewQueueItem[];

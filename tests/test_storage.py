@@ -40,7 +40,7 @@ class StorageTests(unittest.TestCase):
                 "decision_policy_version", "adjudicated_reviewer_decision", "adjudication_status",
             }.issubset(decision_columns))
             self.assertTrue({"disposition", "disposition_reason", "replacement_for_scan_id", "replaced_by_scan_id"}.issubset(scan_columns))
-            self.assertTrue({"logical_sample_key", "spot_id", "grouping_confidence", "grouping_method", "session_id"}.issubset(sample_columns))
+            self.assertTrue({"logical_sample_key", "spot_id", "grouping_confidence", "grouping_method", "session_id", "archived_at", "archived_reason"}.issubset(sample_columns))
             self.assertTrue({"analysis_context", "physical_scan_count", "usable_scan_count"}.issubset(average_columns))
             connection.close()
             storage.close()
@@ -80,6 +80,7 @@ class StorageTests(unittest.TestCase):
             self.assertIn("disposition", {row[1] for row in migrated.execute("PRAGMA table_info(scan)")})
             self.assertIn("analysis_context", {row[1] for row in migrated.execute("PRAGMA table_info(cumulative_average)")})
             self.assertIn("session_id", {row[1] for row in migrated.execute("PRAGMA table_info(sample)")})
+            self.assertIn("archived_at", {row[1] for row in migrated.execute("PRAGMA table_info(sample)")})
             migrated_names = {row[0] for row in migrated.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.assertTrue({"project", "session", "review_queue", "schema_version"}.issubset(migrated_names))
             migrated.close()

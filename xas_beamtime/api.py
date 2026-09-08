@@ -71,6 +71,11 @@ class ScanDispositionRequest(BaseModel):
     replacement_for_scan_id: str | None = None
 
 
+class SampleArchiveRequest(BaseModel):
+    archived: bool
+    reason: str | None = Field(default=None, max_length=500)
+
+
 def create_app() -> FastAPI:
     service = BeamtimeService(load_config(CONFIG_PATH))
 
@@ -166,8 +171,8 @@ def create_app() -> FastAPI:
         return row
 
     @app.get("/api/samples")
-    def samples(session_id: str | None = None) -> list[dict[str, Any]]:
-        return service.samples(session_id)
+    def samples(session_id: str | None = None, archived: bool = False) -> list[dict[str, Any]]:
+        return service.samples(session_id, archived=archived)
 
     @app.get("/api/samples/{sample_id}")
     def sample(sample_id: str) -> dict[str, Any]:
@@ -175,6 +180,15 @@ def create_app() -> FastAPI:
             return service.sample(sample_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Unknown sample") from exc
+
+    @app.patch("/api/samples/{sample_id}/archive")
+    def archive_sample(sample_id: str, request: SampleArchiveRequest) -> dict[str, Any]:
+        try:
+            return service.set_sample_archived(sample_id, request.archived, request.reason)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Unknown sample") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.get("/api/samples/{sample_id}/scans")
     def sample_scans(sample_id: str) -> list[dict[str, Any]]:

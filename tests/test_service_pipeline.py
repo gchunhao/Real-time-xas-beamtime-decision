@@ -152,6 +152,25 @@ class ServicePipelineTests(unittest.TestCase):
             self.assertEqual(service.state()["watch_folder"], str(import_root.resolve()))
             self.assertEqual(service.state()["samples"][0]["physical_scan_count"], 2)
 
+    def test_archived_dataset_is_hidden_and_can_be_restored(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, closing(self._service(directory)) as service:
+            scan_path = Path(__file__).parent.parent / "test_data" / "incoming" / "apatite_scan-001.dat"
+            service._on_complete(scan_path)
+            sample = service.samples()[0]
+
+            archived = service.set_sample_archived(sample["id"], True, "No longer needed in active workspace")
+            self.assertIsNotNone(archived["archived_at"])
+            self.assertEqual(service.samples(), [])
+            self.assertEqual(service.scans(), [])
+            self.assertEqual(len(service.scans(sample["id"])), 1)
+            self.assertEqual(service.workflow_projection()["queue_counts"]["all"], 0)
+            self.assertEqual(len(service.samples(archived=True)), 1)
+
+            restored = service.set_sample_archived(sample["id"], False)
+            self.assertIsNone(restored["archived_at"])
+            self.assertEqual(len(service.samples()), 1)
+            self.assertEqual(service.samples(archived=True), [])
+
     def test_v13_offline_import_exposes_single_scan_arrays_on_one_grid(self) -> None:
         with tempfile.TemporaryDirectory() as directory, closing(
             self._service(directory, "P_K_XANES_v1.3")

@@ -16,7 +16,7 @@ test("loads all resource collections and all review queue states", async () => {
   const bundle = await loadResources();
   assert.equal(bundle.scheduler.mode, "SIMULATION");
   assert.equal(bundle.workflow.simulation_only, true);
-  for (const path of ["/api/projects", "/api/samples", "/api/scans", "/api/decisions", "/api/review-queue?status=PENDING", "/api/review-queue?status=RESOLVED", "/api/review-queue?status=SUPERSEDED", "/api/audit", "/api/workflow"]) assert.ok(paths.includes(path), path);
+  for (const path of ["/api/projects", "/api/samples", "/api/samples?archived=true", "/api/scans", "/api/decisions", "/api/review-queue?status=PENDING", "/api/review-queue?status=RESOLVED", "/api/review-queue?status=SUPERSEDED", "/api/audit", "/api/workflow"]) assert.ok(paths.includes(path), path);
 });
 
 test("watch request uses backend seconds contract and averaging mode", async () => {
@@ -57,4 +57,17 @@ test("sample spectrum requests the persisted sample-average endpoint", async () 
   };
   await api.sampleSpectrum("sample/id");
   assert.equal(capturedPath, "/api/samples/sample%2Fid/spectrum");
+});
+
+test("archive request is explicit and reversible", async () => {
+  let capturedPath;
+  let capturedBody;
+  globalThis.fetch = async (input, init) => {
+    capturedPath = String(input);
+    capturedBody = JSON.parse(String(init.body));
+    return new Response(JSON.stringify({ id: "sample/id", archived_at: "now" }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  await api.archiveSample("sample/id", true, "Archived by user");
+  assert.equal(capturedPath, "/api/samples/sample%2Fid/archive");
+  assert.deepEqual(capturedBody, { archived: true, reason: "Archived by user" });
 });

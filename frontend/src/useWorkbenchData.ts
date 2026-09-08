@@ -3,7 +3,7 @@ import { api, loadResources } from "./api";
 import type { AppState, OfflineImportReport, ResourceBundle, ReviewPayload, ScanDisposition } from "./types";
 
 const EMPTY: ResourceBundle = {
-  projects: [], sessions: [], samples: [], scans: [], decisions: [], reviewQueue: [], reviews: [], audit: [],
+  projects: [], sessions: [], samples: [], archivedSamples: [], scans: [], decisions: [], reviewQueue: [], reviews: [], audit: [],
   scheduler: { mode: "SIMULATION", acquisition_control_enabled: false, held_samples: [], last_execution: null, recent_executions: [] },
   workflow: { generated_at: "", run_status: "PAUSED", simulation_only: true, current_sample_id: null, current_sample_key: null, queue: [], queue_counts: { all: 0, running: 0, queued: 0, review: 0, completed: 0 }, review_queue_count: 0, stages: [], sample_action: null, scheduler_action: null, scheduler: { mode: "SIMULATION", acquisition_control_enabled: false, held_samples: [], last_execution: null, recent_executions: [] } },
 };
@@ -65,5 +65,7 @@ export function useWorkbenchData() {
     importOffline: (paths: string[], averagingMode: "equal" | "noise_weighted" = "equal"): Promise<OfflineImportReport> =>
       mutate(() => api.importOffline(paths, averagingMode)),
     importDemo: (): Promise<OfflineImportReport> => mutate(() => api.importDemo()),
+    archiveSample: (id: string, archived: boolean, reason?: string) =>
+      mutate(() => api.archiveSample(id, archived, reason)).then(() => undefined),
   };
 }
