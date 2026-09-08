@@ -1,16 +1,21 @@
 # Real-time XAS Beamtime Decision Framework
 
-[![Status](https://img.shields.io/badge/v0.2-incomplete%20prototype-orange)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/v0.2.1-research%20prototype-orange)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/gchunhao/real-time-xas-beamtime-decision/actions/workflows/ci.yml/badge.svg)](https://github.com/gchunhao/real-time-xas-beamtime-decision/actions/workflows/ci.yml)
 
-> **Development status:** v0.2 is an incomplete research prototype, not a validated
-> production release. The native Windows desktop shell and complete Live/Offline
-> import workflow are under active development. Do not treat the current installer
-> as release-ready until Windows acceptance testing is complete.
+> **Development status:** v0.2.1 is a research prototype, not a validated
+> production or instrument-control release. The Windows desktop packaging path has
+> passed automated and local acceptance checks, while scientific validation and
+> beamline-specific qualification remain future work.
 
-A local-first, profile-driven application for **real-time and offline X-ray absorption spectroscopy (XAS) decision support**. It converts incoming scans into traceable quality evidence, resource-aware acquisition recommendations, and structured human review—without controlling the beamline.
+XAS Framework v0.2.1 is a local-first research prototype for real-time and offline
+XAS decision support. The current release supports individual-scan browsing,
+independently normalized overlay and difference plots, cumulative scan forecasting
+through a selected scan, structured human review, reversible dataset archiving, and
+complete provenance tracking. The Windows desktop application remains simulation-only
+and never sends acquisition commands to beamline hardware.
 
 The current release focuses on **P K-edge XANES** and is designed as a reusable framework for additional elements, edges, scan types, data formats, and beamline environments.
 

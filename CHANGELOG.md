@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [0.2.1] - 2026-09-08
+
+- Fixed incomplete and placeholder sample-name handling during offline import.
+- Added explicit per-file import failure reporting.
+- Changed Offline Analysis to list and compare individual scans.
+- Added manual Overlay and Difference plotting controls.
+- Calculated Difference Plot from independently normalized spectra.
+- Made scan forecasts cumulative through the selected scan.
+- Added confirmation-protected, reversible dataset archiving.
+- Fixed WebView startup and review-queue display issues.
+- Excluded user spectra, runtime databases, and validation caches from releases.
+- Published a verified Windows installer through GitHub Actions.
+
 - Marked v0.2 explicitly as an incomplete research prototype pending Windows acceptance testing.
 - Replaced default-browser launch with a native pywebview desktop shell backed by the local FastAPI service.
 - Added a deliberately narrow desktop bridge for native folder and multi-file selection; no hardware-control method is exposed.
