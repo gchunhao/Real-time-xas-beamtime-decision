@@ -669,9 +669,54 @@ class BeamtimeService:
 
     def sample_spectrum(self, sample_id: str) -> dict[str, Any]:
         spectrum = self.storage.latest_sample_spectrum(sample_id)
-        if spectrum is None:
+        if spectrum is not None and spectrum.get("energy") and (
+            spectrum.get("normalized") or spectrum.get("raw")
+        ):
+            return spectrum
+
+        # Early desktop builds persisted successful import records with empty
+        # arrays for some CLS/SXRMB column headers. Recover those legacy rows
+        # from their original, provenance-tracked source files at plot time.
+        scans: list[Spectrum] = []
+        for record in self.storage.list_scans(sample_id):
+            if record.get("disposition") != ScanDisposition.USABLE.value:
+                continue
+            source_path = Path(str(record.get("source_path") or ""))
+            if not source_path.is_file():
+                continue
+            try:
+                recovered = self.parser.parse(source_path)
+                self._fill_identity(recovered, self.profile)
+                scans.append(recovered)
+            except (OSError, ParseError, ValueError):
+                continue
+        if not scans:
             raise KeyError(sample_id)
-        return spectrum
+        scans.sort(
+            key=lambda scan: (
+                scan.metadata.scan_number is None,
+                scan.metadata.scan_number or 0,
+                scan.metadata.source_path,
+            )
+        )
+        latest = self.analysis_engine.analyze_series(
+            scans,
+            self.profile,
+            self.limits,
+            str((spectrum or {}).get("averaging_mode") or self.averaging_mode),
+        )[-1]
+        return {
+            "sample_id": (spectrum or {}).get("sample_id") or sample_id,
+            "analysis_id": (spectrum or {}).get("analysis_id"),
+            "energy": latest.energy.tolist(),
+            "raw": latest.raw_average.tolist(),
+            "normalized": latest.normalized_average.tolist(),
+            "averaging_mode": latest.averaging_mode,
+            "scan_count": latest.scan_count,
+            "physical_scan_count": len(scans),
+            "usable_scan_count": len(scans),
+            "recovered_from_source": True,
+        }
 
     def _single_scan_arrays(self, scan: Spectrum) -> dict[str, list[float]]:
         """Return raw and normalized values on the exact same analysis grid."""

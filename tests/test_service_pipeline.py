@@ -178,6 +178,18 @@ class ServicePipelineTests(unittest.TestCase):
             self.assertEqual(len(persisted["energy"]), len(persisted["normalized"]))
             service._scans.clear()
             self.assertEqual(service.sample_spectrum(sample_id), persisted)
+            with service.storage._lock:
+                service.storage._connection.execute(
+                    """UPDATE cumulative_average
+                       SET energy_json='[]', raw_average_json='[]', normalized_average_json='[]'
+                       WHERE id=?""",
+                    (persisted["analysis_id"],),
+                )
+                service.storage._connection.commit()
+            recovered = service.sample_spectrum(sample_id)
+            self.assertTrue(recovered["recovered_from_source"])
+            self.assertGreater(len(recovered["energy"]), 0)
+            self.assertEqual(len(recovered["energy"]), len(recovered["normalized"]))
 
 
 if __name__ == "__main__":
