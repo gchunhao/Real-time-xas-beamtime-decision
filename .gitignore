@@ -10,3 +10,9 @@ node_modules/
 .test-dist/
 *.tsbuildinfo
 *.egg-info/
+
+# Local packaged-app validation state (may contain imported user data)
+.portable-*/
+.overlay-integration*/
+.validation/
+LocalLow/
