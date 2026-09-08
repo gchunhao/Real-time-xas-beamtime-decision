@@ -667,6 +667,12 @@ class BeamtimeService:
                 }
         raise KeyError(scan_id)
 
+    def sample_spectrum(self, sample_id: str) -> dict[str, Any]:
+        spectrum = self.storage.latest_sample_spectrum(sample_id)
+        if spectrum is None:
+            raise KeyError(sample_id)
+        return spectrum
+
     def _single_scan_arrays(self, scan: Spectrum) -> dict[str, list[float]]:
         """Return raw and normalized values on the exact same analysis grid."""
         result = self.analysis_engine.analyze_series(

@@ -172,6 +172,12 @@ class ServicePipelineTests(unittest.TestCase):
                 spectrum = service.scan_spectrum(scan["id"])
                 self.assertEqual(len(spectrum["energy"]), len(spectrum["raw"]))
                 self.assertEqual(len(spectrum["energy"]), len(spectrum["normalized"]))
+            sample_id = service.samples()[0]["id"]
+            persisted = service.sample_spectrum(sample_id)
+            self.assertEqual(len(persisted["energy"]), len(persisted["raw"]))
+            self.assertEqual(len(persisted["energy"]), len(persisted["normalized"]))
+            service._scans.clear()
+            self.assertEqual(service.sample_spectrum(sample_id), persisted)
 
 
 if __name__ == "__main__":

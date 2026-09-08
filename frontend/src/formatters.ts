@@ -63,3 +63,33 @@ export function overallQc(route: string | null | undefined, decision: Scientific
   if (decision === "REACQUIRE") return { value: "Not assigned", status: "Reacquire", tone: "warn" };
   return { value: "Waiting", status: "Waiting", tone: "neutral" };
 }
+
+export function differenceSpectrum(
+  aEnergy: number[],
+  aValues: number[],
+  bEnergy: number[],
+  bValues: number[],
+): { x: number[]; y: number[] } {
+  const a = aEnergy.flatMap((energy, index) =>
+    Number.isFinite(energy) && Number.isFinite(aValues[index]) ? [[energy, aValues[index]] as const] : []
+  );
+  const b = bEnergy.flatMap((energy, index) =>
+    Number.isFinite(energy) && Number.isFinite(bValues[index]) ? [[energy, bValues[index]] as const] : []
+  ).sort((left, right) => left[0] - right[0]);
+  if (a.length < 2 || b.length < 2) return { x: [], y: [] };
+
+  const x: number[] = [];
+  const y: number[] = [];
+  let right = 1;
+  for (const [energy, value] of a) {
+    if (energy < b[0][0] || energy > b[b.length - 1][0]) continue;
+    while (right < b.length && b[right][0] < energy) right += 1;
+    if (right >= b.length) break;
+    const [x1, y1] = b[right - 1];
+    const [x2, y2] = b[right];
+    const interpolated = x2 === x1 ? y2 : y1 + ((energy - x1) / (x2 - x1)) * (y2 - y1);
+    x.push(energy);
+    y.push(value - interpolated);
+  }
+  return { x, y };
+}

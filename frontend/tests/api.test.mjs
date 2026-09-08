@@ -48,3 +48,13 @@ test("demo import uses the bundled-data endpoint", async () => {
   await api.importDemo();
   assert.equal(capturedPath, "/api/import/demo");
 });
+
+test("sample spectrum requests the persisted sample-average endpoint", async () => {
+  let capturedPath;
+  globalThis.fetch = async input => {
+    capturedPath = String(input);
+    return new Response(JSON.stringify({ sample_id: "sample/id", energy: [], normalized: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  await api.sampleSpectrum("sample/id");
+  assert.equal(capturedPath, "/api/samples/sample%2Fid/spectrum");
+});

@@ -44,6 +44,7 @@ export const api = {
   samples: (sessionId?: string | null) => request<SampleResource[]>(sessionId ? `/api/samples?session_id=${encodeURIComponent(sessionId)}` : "/api/samples"),
   sampleScans: (id: string) => request<ScanResource[]>(`/api/samples/${id}/scans`),
   sampleDecisions: (id: string) => request<DecisionResource[]>(`/api/samples/${id}/decisions`),
+  sampleSpectrum: (id: string) => request<SpectrumResource>(`/api/samples/${encodeURIComponent(id)}/spectrum`),
   scans: () => request<ScanResource[]>("/api/scans"),
   spectrum: (id: string) => request<SpectrumResource>(`/api/scans/${encodeURIComponent(id)}/spectrum`),
   decisions: () => request<DecisionResource[]>("/api/decisions"),

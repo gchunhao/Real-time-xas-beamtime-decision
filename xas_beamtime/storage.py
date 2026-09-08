@@ -679,6 +679,39 @@ class Storage:
         with self._lock:
             return [dict(row) for row in self._connection.execute(sql, params).fetchall()]
 
+    def latest_sample_spectrum(self, sample_id_or_key: str) -> dict[str, Any] | None:
+        """Return the latest persisted production average for a sample."""
+        with self._lock:
+            sample = self._one(
+                "SELECT id FROM sample WHERE id=? OR sample_key=? OR logical_sample_key=? LIMIT 1",
+                (sample_id_or_key, sample_id_or_key, sample_id_or_key),
+            )
+            if sample is None:
+                return None
+            row = self._one(
+                """SELECT id, sample_id, energy_json, raw_average_json, normalized_average_json,
+                   averaging_mode, scan_count, physical_scan_count, usable_scan_count, created_at
+                   FROM cumulative_average
+                   WHERE sample_id=? AND analysis_context='PRODUCTION'
+                   ORDER BY created_at DESC LIMIT 1""",
+                (sample["id"],),
+            )
+            if row is None:
+                return None
+            average = dict(row)
+        return {
+            "sample_id": average["sample_id"],
+            "analysis_id": average["id"],
+            "energy": json.loads(average["energy_json"]),
+            "raw": json.loads(average["raw_average_json"]),
+            "normalized": json.loads(average["normalized_average_json"]),
+            "averaging_mode": average["averaging_mode"],
+            "scan_count": average["scan_count"],
+            "physical_scan_count": average["physical_scan_count"],
+            "usable_scan_count": average["usable_scan_count"],
+            "created_at": average["created_at"],
+        }
+
     def list_decisions(self, sample_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         sql = """SELECT d.*, ca.sample_id, ca.scan_count, ca.physical_scan_count, ca.usable_scan_count, ca.analysis_context,
                  s.sample_key, s.logical_sample_key

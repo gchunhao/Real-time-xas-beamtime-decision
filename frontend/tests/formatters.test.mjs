@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decisionTone, jsonList, overallQc, pct, sampleStatus, scanForecast } from "../.test-dist/formatters.js";
+import { decisionTone, differenceSpectrum, jsonList, overallQc, pct, sampleStatus, scanForecast } from "../.test-dist/formatters.js";
 
 test("quality values are formatted from fractions to percentages", () => assert.equal(pct(0.0045, 2), "0.45%"));
 test("all decision states have stable display tones", () => assert.deepEqual(["CONTINUE", "STOP", "REACQUIRE", "REVIEW_REQUIRED"].map(decisionTone), ["continue", "stop", "reacquire", "review"]));
@@ -18,4 +18,9 @@ test("overall QC reads route and completed samples do not remain running", () =>
   assert.deepEqual(overallQc("A", "STOP"), { value: "Route A", status: "Pass", tone: "good" });
   assert.deepEqual(sampleStatus("STOP"), { label: "Completed", tone: "good" });
   assert.deepEqual(sampleStatus("REVIEW_REQUIRED"), { label: "Review Required", tone: "warn" });
+});
+test("difference spectra align unequal energy grids by interpolation", () => {
+  assert.deepEqual(differenceSpectrum([1, 2, 3], [4, 6, 8], [1, 2, 3], [1, 2, 3]), { x: [1, 2, 3], y: [3, 4, 5] });
+  assert.deepEqual(differenceSpectrum([1, 2, 3], [2, 4, 6], [0, 1.5, 2.5, 4], [0, 3, 5, 8]), { x: [1, 2, 3], y: [0, 0, 0] });
+  assert.deepEqual(differenceSpectrum([1, 2], [1, 2], [3, 4], [3, 4]), { x: [], y: [] });
 });

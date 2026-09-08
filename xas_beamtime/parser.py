@@ -22,7 +22,7 @@ NUMBER_RE = re.compile(r"[-+]?\d+(?:\.\d+)?")
 
 ALIASES = {
     "element": ("element", "absorber", "atomic symbol"),
-    "edge": ("edge", "absorption edge"),
+    "edge": ("edge", "absorption edge", "scanned edge"),
     "scan_type": ("scan type", "scan_type", "mode"),
     "sample_id": ("sample", "sample id", "sample_id", "sample name"),
     "scan_number": ("scan", "scan number", "scan_number", "scan no"),
@@ -114,7 +114,15 @@ class UniversalXASParser:
                 continue
             if not self._looks_numeric(cleaned):
                 tokens = re.split(r"[,\t\s]+", cleaned)
-                if any(_normal_key(t) in {"energy", "energy ev", "mu", "i0", "it", "if"} for t in tokens):
+                normalized = [_normal_key(token).replace(" ", "_") for token in tokens]
+                has_energy = any(token in {"energy", "energy_ev", "e", "mono"} or "energyfeedback" in token for token in normalized)
+                has_signal = any(
+                    token in {"mu", "i0", "it", "if", "signal", "norm"}
+                    or token.startswith("norm_")
+                    or "detector" in token
+                    for token in normalized
+                )
+                if has_energy and has_signal:
                     columns = tokens
                 continue
             table.append(cleaned)
@@ -159,22 +167,42 @@ class UniversalXASParser:
         for alias in ("mu", "mutrans", "mufluor", "signal", "norm"):
             if alias in names:
                 return names.index(alias)
+        normalized_fluorescence = [
+            i for i, name in enumerate(names)
+            if name.startswith("norm_") and "tey" not in name and i != energy_index
+        ]
+        if normalized_fluorescence:
+            return normalized_fluorescence[0]
+        normalized = [i for i, name in enumerate(names) if name.startswith("norm_") and i != energy_index]
+        if normalized:
+            return normalized[0]
         candidates = [i for i in range(data.shape[1]) if i != energy_index]
         return candidates[0]
 
     def _metadata(self, source: Path, header: dict[str, str]) -> ScanMetadata:
         filename = source.stem
-        scan_number = _as_int(_metadata_value(header, "scan_number"))
+        scan_value = _metadata_value(header, "scan_number")
+        scan_match = re.search(r"#\s*(\d+)\s*$", scan_value or "")
+        scan_number = int(scan_match.group(1)) if scan_match else _as_int(scan_value)
         if scan_number is None:
             match = re.search(r"(?:scan|s)[-_ ]?(\d+)$", filename, re.IGNORECASE)
             scan_number = int(match.group(1)) if match else None
         sample_id = _metadata_value(header, "sample_id")
+        if sample_id is None and scan_value:
+            sample_match = re.match(r"^\s*(.+?)\s*#\s*\d+\s*$", scan_value)
+            if sample_match:
+                sample_id = sample_match.group(1).strip()
         if sample_id is None:
             sample_id = re.sub(r"(?:[-_ ]?(?:scan|s)[-_ ]?\d+)$", "", filename, flags=re.IGNORECASE)
+        element = _metadata_value(header, "element")
+        edge = _metadata_value(header, "edge")
+        edge_parts = re.match(r"^\s*([A-Z][a-z]?)\s+([KLM]\d?)\s*$", edge or "")
+        if edge_parts and element is None:
+            element, edge = edge_parts.groups()
         return ScanMetadata(
             source_path=str(source.resolve()),
-            element=_metadata_value(header, "element"),
-            edge=_metadata_value(header, "edge"),
+            element=element,
+            edge=edge,
             scan_type=_metadata_value(header, "scan_type"),
             sample_id=sample_id,
             scan_number=scan_number,

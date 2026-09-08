@@ -49,6 +49,26 @@ class ParserAnalysisTests(unittest.TestCase):
         self.assertTrue(safe[0].automatically_masked)
         self.assertNotEqual(cleaned[0, safe_index], aligned[0, safe_index])
 
+    def test_cls_sxrmb_header_uses_energy_feedback_and_normalized_fluorescence(self) -> None:
+        content = """# Scan: Merced2_RA3 #1
+# Scanned Edge:\tP K
+# Note that I0.X is the energy feedback.
+# EnergyFeedback.X\tEnergyFeedback\tBeamlineI0Detector\tTEYDetector\tPKa1\tnorm_PKa1\tnorm_TEYDetector
+2110\t2110\t27308\t61358\t467\t0.0171012\t2.24689
+2112\t2112\t27792\t60717\t626\t0.0225245\t2.18469
+2114\t2114\t28224\t60867\t604\t0.0214002\t2.15657
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Merced2_RA3_1.dat"
+            path.write_text(content, encoding="utf-8")
+            scan = UniversalXASParser().parse(path)
+        np.testing.assert_allclose(scan.energy, [2110, 2112, 2114])
+        np.testing.assert_allclose(scan.mu, [0.0171012, 0.0225245, 0.0214002])
+        self.assertEqual(scan.metadata.element, "P")
+        self.assertEqual(scan.metadata.edge, "K")
+        self.assertEqual(scan.metadata.sample_id, "Merced2_RA3")
+        self.assertEqual(scan.metadata.scan_number, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

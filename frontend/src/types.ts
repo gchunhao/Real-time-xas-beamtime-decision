@@ -283,7 +283,9 @@ export interface AuditEvent {
 }
 
 export interface SpectrumResource {
-  scan_id: string;
+  scan_id?: string;
+  sample_id?: string;
+  analysis_id?: string;
   energy: number[];
   raw?: number[];
   normalized?: number[];

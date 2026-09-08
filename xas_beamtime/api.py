@@ -188,6 +188,13 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Unknown sample")
         return service.storage.list_decisions(sample_id, max(1, min(limit, 1000)))
 
+    @app.get("/api/samples/{sample_id}/spectrum")
+    def sample_spectrum(sample_id: str) -> dict[str, Any]:
+        try:
+            return service.sample_spectrum(sample_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Sample spectrum is unavailable") from exc
+
     @app.get("/api/scans")
     def scans(sample_id: str | None = None) -> list[dict[str, Any]]:
         return service.scans(sample_id)
