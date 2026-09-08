@@ -71,8 +71,12 @@ class AnalysisEngine:
                     current.marginal_gain = (previous - current_value) / previous
             results.append(current)
         first_quant = next((r.scan_count for r in results if r.metrics.route in {"A", "B"}), None)
+        review_states = {"HUMAN_LOCAL_REVIEW_REQUIRED", "REVIEW_REQUIRED"}
         for result in results:
-            result.n_quant = first_quant
+            selector_state = result.provenance.get("normalization_selector_state")
+            # Freeze-candidate rule: normalization-review states do not emit
+            # Route-derived N_quant, even if an earlier prefix reached a route.
+            result.n_quant = None if selector_state in review_states else first_quant
         return results
 
     def _analyze(
