@@ -75,6 +75,8 @@ export interface Sample {
 export interface Result {
   analysis_id?: string;
   decision_id?: string;
+  profile_id?: string;
+  provenance?: Record<string, unknown>;
   logical_sample_key?: string;
   sample_id: string;
   scan_count: number;
