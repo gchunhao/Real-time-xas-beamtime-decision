@@ -8,7 +8,7 @@ watch:
     minimum_bytes: 256
     require_final_newline: true
 analysis:
-  profile_id: P_K_XANES_v1.2
+  profile_id: P_K_XANES_v1.3
   averaging_mode: equal
 limits:
   maximum_scans: 8

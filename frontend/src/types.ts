@@ -13,6 +13,7 @@ export interface Metrics {
   q_pre_pct?: number | null;
   q_post_pct?: number | null;
   a_spike: number | null;
+  route?: string | null;
   marginal_gain_pct?: number | null;
   [key: string]: number | string | boolean | null | undefined;
 }
@@ -136,6 +137,7 @@ export interface SchedulerState {
 }
 
 export interface AppState {
+  mode?: "IDLE" | "LIVE" | "OFFLINE" | string;
   watching?: boolean;
   watch_folder?: string | null;
   project_id?: string | null;
@@ -145,6 +147,18 @@ export interface AppState {
   latest_results?: Record<string, Result>;
   scheduler: SchedulerState;
   [key: string]: unknown;
+}
+
+export interface OfflineImportReport {
+  mode: "OFFLINE";
+  source_root: string;
+  selected_paths: string[];
+  discovered_files: number;
+  imported_files: number;
+  failed_files: number;
+  errors: Array<{ path: string; error: string }>;
+  project_id?: string | null;
+  session_id?: string | null;
 }
 
 export interface ProjectResource {

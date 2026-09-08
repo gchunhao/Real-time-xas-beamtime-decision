@@ -2,6 +2,7 @@ import type {
   AppState,
   AuditEvent,
   DecisionResource,
+  OfflineImportReport,
   ProjectResource,
   ResourceBundle,
   ReviewPayload,
@@ -40,7 +41,7 @@ export const api = {
   state: () => request<AppState>("/api/state"),
   projects: () => request<ProjectResource[]>("/api/projects"),
   sessions: () => request<SessionResource[]>("/api/sessions"),
-  samples: () => request<SampleResource[]>("/api/samples"),
+  samples: (sessionId?: string | null) => request<SampleResource[]>(sessionId ? `/api/samples?session_id=${encodeURIComponent(sessionId)}` : "/api/samples"),
   sampleScans: (id: string) => request<ScanResource[]>(`/api/samples/${id}/scans`),
   sampleDecisions: (id: string) => request<DecisionResource[]>(`/api/samples/${id}/decisions`),
   scans: () => request<ScanResource[]>("/api/scans"),
@@ -74,14 +75,20 @@ export const api = {
         averaging_mode: averagingMode,
       }),
     }),
+  importOffline: (paths: string[], averagingMode: "equal" | "noise_weighted" = "equal") =>
+    request<OfflineImportReport>("/api/import/offline", {
+      method: "POST",
+      body: JSON.stringify({ paths, recursive: true, averaging_mode: averagingMode }),
+    }),
+  importDemo: () => request<OfflineImportReport>("/api/import/demo", { method: "POST" }),
 };
 
-export async function loadResources(): Promise<ResourceBundle> {
+export async function loadResources(sessionId?: string | null): Promise<ResourceBundle> {
   const [projects, sessions, samples, scans, decisions, pending, resolved, superseded, reviews, audit, scheduler, workflow] =
     await Promise.all([
       api.projects(),
       api.sessions(),
-      api.samples(),
+      api.samples(sessionId),
       api.scans(),
       api.decisions(),
       api.queue("PENDING"),
@@ -92,14 +99,16 @@ export async function loadResources(): Promise<ResourceBundle> {
       api.scheduler(),
       api.workflow(),
     ]);
+  const sampleIds = new Set(samples.map(sample => sample.id));
+  const decisionIds = new Set(decisions.filter(decision => sampleIds.has(decision.sample_id)).map(decision => decision.id));
   return {
     projects,
     sessions,
     samples,
-    scans,
-    decisions,
-    reviewQueue: [...pending, ...resolved, ...superseded],
-    reviews,
+    scans: scans.filter(scan => sampleIds.has(scan.sample_id)),
+    decisions: decisions.filter(decision => sampleIds.has(decision.sample_id)),
+    reviewQueue: [...pending, ...resolved, ...superseded].filter(item => sampleIds.has(item.sample_id)),
+    reviews: reviews.filter(review => decisionIds.has(review.decision_id)),
     audit,
     scheduler,
     workflow,

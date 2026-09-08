@@ -1,9 +1,14 @@
 # Real-time XAS Beamtime Decision Framework
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue)](https://github.com/gchunhao/real-time-xas-beamtime-decision/releases)
+[![Status](https://img.shields.io/badge/v0.2-incomplete%20prototype-orange)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/gchunhao/real-time-xas-beamtime-decision/actions/workflows/ci.yml/badge.svg)](https://github.com/gchunhao/real-time-xas-beamtime-decision/actions/workflows/ci.yml)
+
+> **Development status:** v0.2 is an incomplete research prototype, not a validated
+> production release. The native Windows desktop shell and complete Live/Offline
+> import workflow are under active development. Do not treat the current installer
+> as release-ready until Windows acceptance testing is complete.
 
 A local-first, profile-driven application for **real-time and offline X-ray absorption spectroscopy (XAS) decision support**. It converts incoming scans into traceable quality evidence, resource-aware acquisition recommendations, and structured human review—without controlling the beamline.
 
@@ -54,14 +59,16 @@ The v0.2 interface implements eight coordinated surfaces:
 - **Audit Logs** — chronological provenance for scientific, review, and workflow events
 - **Settings** — local session, profile, folder, and resource-limit configuration
 
-Ordinary Windows users can install `XAS_Framework_v0.2_Setup.exe`, keep the default desktop shortcut, and launch **XAS Framework** without installing Python or using a command prompt.
+The target Windows workflow is a self-contained desktop application that requires
+neither a separate Python installation nor a command prompt. That packaging path
+remains prototype work pending native Windows acceptance testing.
 
 ## Scientific and decision architecture
 
 A central design choice is to separate two questions that are often mixed together:
 
 - **Is the spectrum scientifically adequate?**  
-  Answered by a frozen scan-level quality profile. `P_K_XANES_v1.3` is the latest frozen P K-edge XANES profile; `P_K_XANES_v1.2` is retained for reproducibility and remains the default runtime profile until an explicit rollout changes configuration.
+  Answered by a frozen scan-level quality profile. `P_K_XANES_v1.3` is the latest frozen P K-edge XANES profile and is now the configured prototype runtime; `P_K_XANES_v1.2` is retained unchanged for reproducibility.
 
 - **What should the experiment do next?**  
   Handled by a separately versioned Acquisition Decision Policy (ADP), resource constraints, workflow state, and human review.

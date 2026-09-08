@@ -52,6 +52,8 @@ class ApiContractTests(unittest.TestCase):
                 "/api/audit",
                 "/api/scheduler/state",
                 "/api/workflow",
+                "/api/import/offline",
+                "/api/import/demo",
             }
             self.assertTrue(expected.issubset(paths))
             app.state.beamtime.close()

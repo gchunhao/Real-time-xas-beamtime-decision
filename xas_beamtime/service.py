@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import asdict
 from pathlib import Path
@@ -34,7 +35,7 @@ class BeamtimeService:
     def __init__(self, config: AppConfig):
         self.config = config
         self.registry = ProfileRegistry()
-        self.profile = self.registry.get(config.get("analysis.profile_id", "P_K_XANES_v1.2"))
+        self.profile = self.registry.get(config.get("analysis.profile_id", "P_K_XANES_v1.3"))
         calibration = BeamlineCalibration.load(
             config.path("beamline.calibration_file", "./config/beamline_calibration.example.yaml")
         )
@@ -57,38 +58,64 @@ class BeamtimeService:
         self._experiment_id: str | None = None
         self._project_id: str | None = None
         self._session_id: str | None = None
+        self.runtime_mode = "IDLE"
 
     def start(self) -> None:
-        self.set_watch(self.watch_folder, self.limits, self.averaging_mode)
+        if bool(self.config.get("watch.autostart", False)):
+            self.set_watch(self.watch_folder, self.limits, self.averaging_mode)
+        else:
+            self._event("application_ready", "Select Live or Offline mode to begin")
 
     def stop(self) -> None:
         if self.watcher:
             self.watcher.stop()
             self.watcher = None
 
+    def _begin_session(
+        self,
+        source: Path,
+        runtime_mode: str,
+        limits: RuntimeLimits,
+        averaging_mode: str,
+    ) -> None:
+        self.watch_folder = source.resolve()
+        self.limits = limits
+        self.averaging_mode = averaging_mode
+        self.runtime_mode = runtime_mode
+        settings = {
+            "limits": asdict(limits),
+            "profile_id": self.profile.id,
+            "averaging_mode": averaging_mode,
+            "runtime_mode": runtime_mode,
+        }
+        self._experiment_id = self.storage.ensure_experiment(
+            str(self.watch_folder), self.parser.calibration.beamline, settings
+        )
+        self._project_id, self._session_id = self.storage.ensure_project_session(
+            str(self.watch_folder),
+            self.parser.calibration.beamline,
+            settings,
+            self._experiment_id,
+            project_name=str(self.config.get("project.name", "XAS Project")),
+            session_name=f"{runtime_mode.title()} · {self.watch_folder.name}",
+        )
+        self._scans.clear()
+        self._results.clear()
+        self._review_results.clear()
+        self._sample_db_ids.clear()
+        self.scheduler = SchedulerSimulationAdapter()
+
     def close(self) -> None:
         self.stop()
         self.storage.close()
 
     def set_watch(self, folder: str | Path, limits: RuntimeLimits, averaging_mode: str) -> None:
+        source = Path(folder).expanduser()
+        if not source.is_dir():
+            raise ValueError(f"Folder does not exist: {source}")
+        self.stop()
         with self._lock:
-            if self.watcher:
-                self.watcher.stop()
-            self.watch_folder = Path(folder).resolve()
-            self.limits = limits
-            self.averaging_mode = averaging_mode
-            settings = {"limits": asdict(limits), "profile_id": self.profile.id, "mode": averaging_mode}
-            self._experiment_id = self.storage.ensure_experiment(
-                str(self.watch_folder), self.parser.calibration.beamline, settings
-            )
-            self._project_id, self._session_id = self.storage.ensure_project_session(
-                str(self.watch_folder),
-                self.parser.calibration.beamline,
-                settings,
-                self._experiment_id,
-                project_name=str(self.config.get("project.name", "XAS Project")),
-                session_name=self.config.get("session.name"),
-            )
+            self._begin_session(source, "LIVE", limits, averaging_mode)
             completion = FileCompletionValidator(
                 stable_checks=int(self.config.get("watch.completion.stable_checks", 3)),
                 stable_interval_seconds=float(self.config.get("watch.completion.stable_interval_seconds", 0.3)),
@@ -114,17 +141,79 @@ class BeamtimeService:
             self.watcher.start(include_existing=True)
             self._event("watch_started", str(self.watch_folder), project_id=self._project_id, session_id=self._session_id)
 
+    def import_offline(
+        self,
+        paths: list[str | Path],
+        limits: RuntimeLimits,
+        averaging_mode: str,
+        recursive: bool = True,
+    ) -> dict[str, Any]:
+        selected = [Path(path).expanduser().resolve() for path in paths]
+        if not selected:
+            raise ValueError("No files or folders were selected")
+        missing = [str(path) for path in selected if not path.exists()]
+        if missing:
+            raise ValueError(f"Selected path does not exist: {missing[0]}")
+
+        files: list[Path] = []
+        for selected_path in selected:
+            if selected_path.is_file():
+                files.append(selected_path)
+                continue
+            pattern = "**/*" if recursive else "*"
+            files.extend(path for path in selected_path.glob(pattern) if path.is_file())
+        files = sorted({path for path in files if path.suffix.lower() in self.parser.extensions})
+        if not files:
+            supported = ", ".join(sorted(self.parser.extensions))
+            raise ValueError(f"No supported XAS files were found ({supported})")
+
+        parents = [str(path.parent) for path in files]
+        source_root = Path(os.path.commonpath(parents)) if len(parents) > 1 else files[0].parent
+        self.stop()
+        with self._lock:
+            self._begin_session(source_root, "OFFLINE", limits, averaging_mode)
+
+        imported = 0
+        errors: list[dict[str, str]] = []
+        for path in files:
+            result = self._on_complete(path)
+            if "error" in result:
+                errors.append(result)
+            else:
+                imported += 1
+        report = {
+            "mode": "OFFLINE",
+            "source_root": str(source_root),
+            "selected_paths": [str(path) for path in selected],
+            "discovered_files": len(files),
+            "imported_files": imported,
+            "failed_files": len(errors),
+            "errors": errors,
+            "project_id": self._project_id,
+            "session_id": self._session_id,
+        }
+        self._event("offline_import_completed", str(source_root), **report)
+        return report
+
     def _event(self, kind: str, message: str, **details: Any) -> None:
         from .models import utc_now
 
         self._events.append({"time": utc_now(), "kind": kind, "message": message, **details})
         self._events = self._events[-100:]
 
-    def _on_complete(self, path: Path) -> None:
+    def _on_complete(self, path: Path) -> dict[str, str]:
         try:
             spectrum = self.parser.parse(path)
             self._fill_identity(spectrum, self.profile)
-            matched = self.registry.match(spectrum.metadata.element, spectrum.metadata.edge, spectrum.metadata.scan_type)
+            matched = (
+                self.profile
+                if self._profile_matches(self.profile, spectrum)
+                else self.registry.match(
+                    spectrum.metadata.element,
+                    spectrum.metadata.edge,
+                    spectrum.metadata.scan_type,
+                )
+            )
             if matched is None:
                 raise ParseError(
                     f"No profile for {spectrum.metadata.element}_{spectrum.metadata.edge}_{spectrum.metadata.scan_type}"
@@ -170,8 +259,11 @@ class BeamtimeService:
                     scheduler_action=latest.scheduler_action.value,
                     effective_scheduler_action=latest.effective_scheduler_action.value,
                 )
+                return {"path": str(path), "sample_id": sample_key, "scan_id": scan_id}
         except Exception as exc:
-            self._event("analysis_error", path.name, error=f"{type(exc).__name__}: {exc}")
+            error = f"{type(exc).__name__}: {exc}"
+            self._event("analysis_error", path.name, error=error)
+            return {"path": str(path), "error": error}
 
     @staticmethod
     def _fill_identity(spectrum: Spectrum, profile: Profile) -> None:
@@ -179,6 +271,16 @@ class BeamtimeService:
         spectrum.metadata.element = spectrum.metadata.element or str(identity["element"])
         spectrum.metadata.edge = spectrum.metadata.edge or str(identity["edge"])
         spectrum.metadata.scan_type = spectrum.metadata.scan_type or str(identity["scan_type"])
+
+    @staticmethod
+    def _profile_matches(profile: Profile, spectrum: Spectrum) -> bool:
+        identity = profile.data["identity"]
+        metadata = spectrum.metadata
+        return (
+            (metadata.element or "").upper() == str(identity["element"]).upper()
+            and (metadata.edge or "").upper() == str(identity["edge"]).upper()
+            and (metadata.scan_type or "").upper() == str(identity["scan_type"]).upper()
+        )
 
     @staticmethod
     def _prepare_logical_identity(spectrum: Spectrum, path: Path) -> None:
@@ -423,11 +525,7 @@ class BeamtimeService:
                                 "disposition": dispositions.get(
                                     canonical_scan_id(scan.metadata), ScanDisposition.USABLE
                                 ).value,
-                                "energy": scan.energy.tolist(),
-                                "raw": scan.mu.tolist(),
-                                "normalized": self.analysis_engine.analyze_series(
-                                    [scan], self.profile, self.limits, "equal"
-                                )[0].normalized_average.tolist(),
+                                **self._single_scan_arrays(scan),
                             }
                             for index, scan in enumerate(ordered_scans)
                         ],
@@ -438,12 +536,12 @@ class BeamtimeService:
                 )
             return {
                 "framework_version": "0.2.0",
-                "mode": "Real-time decision support",
+                "mode": self.runtime_mode,
                 "acquisition_control_enabled": False,
                 "scheduler_mode": "SIMULATION",
                 "scheduler": self.scheduler.state(),
                 "watching": self.watcher is not None,
-                "watch_folder": str(self.watch_folder),
+                "watch_folder": str(self.watch_folder) if self.runtime_mode != "IDLE" else None,
                 "project_id": self._project_id,
                 "session_id": self._session_id,
                 "limits": asdict(self.limits),
@@ -514,7 +612,7 @@ class BeamtimeService:
         ]
         return {
             "generated_at": utc_now(),
-            "run_status": "AUTO RUNNING" if self.watcher is not None else "PAUSED",
+            "run_status": "AUTO RUNNING" if self.watcher is not None else ("OFFLINE READY" if self.runtime_mode == "OFFLINE" else "PAUSED"),
             "simulation_only": True,
             "current_sample_id": current["sample_id"] if current else None,
             "current_sample_key": current["logical_sample_key"] if current else None,
@@ -563,11 +661,19 @@ class BeamtimeService:
         for sample_scans in self._scans.values():
             if scan_id in sample_scans:
                 scan = sample_scans[scan_id]
-                normalized = self.analysis_engine.analyze_series([scan], self.profile, self.limits, "equal")[0]
                 return {
                     "scan_id": scan_id,
-                    "energy": scan.energy.tolist(),
-                    "raw": scan.mu.tolist(),
-                    "normalized": normalized.normalized_average.tolist(),
+                    **self._single_scan_arrays(scan),
                 }
         raise KeyError(scan_id)
+
+    def _single_scan_arrays(self, scan: Spectrum) -> dict[str, list[float]]:
+        """Return raw and normalized values on the exact same analysis grid."""
+        result = self.analysis_engine.analyze_series(
+            [scan], self.profile, self.limits, "equal"
+        )[0]
+        return {
+            "energy": result.energy.tolist(),
+            "raw": result.raw_average.tolist(),
+            "normalized": result.normalized_average.tolist(),
+        }

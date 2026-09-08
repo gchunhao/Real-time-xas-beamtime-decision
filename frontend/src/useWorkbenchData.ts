@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, loadResources } from "./api";
-import type { AppState, ResourceBundle, ReviewPayload, ScanDisposition } from "./types";
+import type { AppState, OfflineImportReport, ResourceBundle, ReviewPayload, ScanDisposition } from "./types";
 
 const EMPTY: ResourceBundle = {
   projects: [], sessions: [], samples: [], scans: [], decisions: [], reviewQueue: [], reviews: [], audit: [],
@@ -18,7 +18,8 @@ export function useWorkbenchData() {
   const refresh = useCallback(async (quiet = false) => {
     if (!quiet) setBusy(true);
     try {
-      const [nextState, nextResources] = await Promise.all([api.state(), loadResources()]);
+      const nextState = await api.state();
+      const nextResources = await loadResources(nextState.session_id);
       setState(nextState);
       setResources(nextResources);
       setError("");
@@ -36,11 +37,17 @@ export function useWorkbenchData() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  const mutate = useCallback(async (operation: () => Promise<unknown>) => {
+  const mutate = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
     setBusy(true);
     try {
-      await operation();
+      const result = await operation();
       await refresh(true);
+      setError("");
+      return result;
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      setError(message);
+      throw caught;
     } finally {
       setBusy(false);
     }
@@ -48,12 +55,15 @@ export function useWorkbenchData() {
 
   return {
     state, resources, error, busy, lastUpdated, refresh,
-    saveReview: (payload: ReviewPayload) => mutate(() => api.saveReview(payload)),
+    saveReview: (payload: ReviewPayload) => mutate(() => api.saveReview(payload)).then(() => undefined),
     setDisposition: (id: string, disposition: ScanDisposition, reason: string) =>
-      mutate(() => api.setDisposition(id, disposition, reason)),
+      mutate(() => api.setDisposition(id, disposition, reason)).then(() => undefined),
     reanalyze: (sampleId: string, averagingMode: "equal" | "noise_weighted", includedScanIds: string[], anchors: Record<string, number[]>) =>
-      mutate(() => api.reanalyze(sampleId, averagingMode, includedScanIds, anchors)),
+      mutate(() => api.reanalyze(sampleId, averagingMode, includedScanIds, anchors)).then(() => undefined),
     setWatch: (folder: string, maximumScans: number | null, maximumTimeSeconds: number | null, averagingMode: "equal" | "noise_weighted") =>
-      mutate(() => api.watch(folder, maximumScans, maximumTimeSeconds, averagingMode)),
+      mutate(() => api.watch(folder, maximumScans, maximumTimeSeconds, averagingMode)).then(() => undefined),
+    importOffline: (paths: string[], averagingMode: "equal" | "noise_weighted" = "equal"): Promise<OfflineImportReport> =>
+      mutate(() => api.importOffline(paths, averagingMode)),
+    importDemo: (): Promise<OfflineImportReport> => mutate(() => api.importDemo()),
   };
 }

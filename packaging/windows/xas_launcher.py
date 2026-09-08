@@ -8,7 +8,6 @@ import sys
 import threading
 import time
 import urllib.request
-import webbrowser
 from pathlib import Path
 
 
@@ -29,6 +28,7 @@ def prepare_user_files() -> Path:
     root = user_root()
     (root / "config").mkdir(parents=True, exist_ok=True)
     (root / "runtime").mkdir(parents=True, exist_ok=True)
+    (root / "webview").mkdir(parents=True, exist_ok=True)
     (root / "reference_library").mkdir(parents=True, exist_ok=True)
     (root / "test_data" / "incoming").mkdir(parents=True, exist_ok=True)
     source = bundle_root()
@@ -41,6 +41,21 @@ def prepare_user_files() -> Path:
     for src, dst in copies.items():
         if src.exists() and not dst.exists():
             shutil.copy2(src, dst)
+    app_config = root / "config" / "app.yaml"
+    if app_config.exists():
+        current = app_config.read_text(encoding="utf-8")
+        migrated = current.replace(
+            "profile_id: P_K_XANES_v1.2", "profile_id: P_K_XANES_v1.3"
+        )
+        if migrated != current:
+            app_config.write_text(migrated, encoding="utf-8")
+    demo_source = source / "test_data" / "incoming"
+    demo_target = root / "test_data" / "incoming"
+    if demo_source.exists():
+        for src in demo_source.iterdir():
+            dst = demo_target / src.name
+            if src.is_file() and not dst.exists():
+                shutil.copy2(src, dst)
     os.environ["XAS_CONFIG"] = str(root / "config" / "app.yaml")
     return root
 
@@ -82,29 +97,80 @@ def available_port(host: str, preferred: int = 8765) -> int:
     raise RuntimeError("No local port is available for XAS Framework.")
 
 
+class DesktopBridge:
+    """Minimal native-dialog surface exposed to the bundled React application."""
+
+    def __init__(self) -> None:
+        self.window = None
+
+    def bind(self, window) -> None:
+        self.window = window
+
+    def select_folder(self) -> str | None:
+        import webview
+
+        if self.window is None:
+            return None
+        selected = self.window.create_file_dialog(webview.FileDialog.FOLDER)
+        return str(selected) if selected else None
+
+    def select_files(self) -> list[str]:
+        import webview
+
+        if self.window is None:
+            return []
+        selected = self.window.create_file_dialog(
+            webview.FileDialog.OPEN,
+            allow_multiple=True,
+            file_types=("XAS data (*.dat;*.txt;*.csv;*.xas;*.xy)", "All files (*.*)"),
+        )
+        if not selected:
+            return []
+        if isinstance(selected, str):
+            return [selected]
+        return [str(path) for path in selected]
+
+
 def run(smoke_test: bool = False) -> int:
     root = prepare_user_files()
     ensure_stdio(root)
     from xas_beamtime.api import app
     import uvicorn
+    import webview
 
     host = "127.0.0.1"
     port = available_port(host)
     config = uvicorn.Config(app, host=host, port=port, log_level="warning")
     server = uvicorn.Server(config)
-    if smoke_test:
-        thread = threading.Thread(target=server.run, daemon=True)
-        thread.start()
+    thread = threading.Thread(target=server.run, daemon=True, name="xas-local-service")
+    thread.start()
+    try:
         wait_until_ready(f"http://{host}:{port}/api/workflow")
-        with urllib.request.urlopen(f"http://{host}:{port}/api/scheduler/state") as response:
-            if b'"acquisition_control_enabled":false' not in response.read():
-                raise RuntimeError("Safety smoke check failed")
+        if smoke_test:
+            if not hasattr(webview, "create_window") or not hasattr(webview, "FileDialog"):
+                raise RuntimeError("Desktop WebView runtime is unavailable")
+            with urllib.request.urlopen(f"http://{host}:{port}/api/scheduler/state") as response:
+                if b'"acquisition_control_enabled":false' not in response.read():
+                    raise RuntimeError("Safety smoke check failed")
+            return 0
+
+        bridge = DesktopBridge()
+        window = webview.create_window(
+            "XAS Framework v0.2 Prototype",
+            f"http://{host}:{port}",
+            js_api=bridge,
+            width=1500,
+            height=950,
+            min_size=(1180, 720),
+            maximized=True,
+            background_color="#f3f6fa",
+        )
+        bridge.bind(window)
+        webview.start(private_mode=False, storage_path=str(root / "webview"))
+        return 0
+    finally:
         server.should_exit = True
         thread.join(5)
-        return 0
-    threading.Timer(1.0, lambda: webbrowser.open(f"http://{host}:{port}")).start()
-    server.run()
-    return 0
 
 
 if __name__ == "__main__":

@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import shutil
 from contextlib import closing
 from pathlib import Path
 
 from xas_beamtime.config import AppConfig
 from xas_beamtime.models import ScanDisposition
+from xas_beamtime.models import RuntimeLimits
 from xas_beamtime.service import BeamtimeService
 
 
 class ServicePipelineTests(unittest.TestCase):
-    def _service(self, directory: str) -> BeamtimeService:
+    def _service(self, directory: str, profile_id: str = "P_K_XANES_v1.2") -> BeamtimeService:
         project = Path(__file__).parent.parent
         source = Path(directory) / "config" / "app.yaml"
         source.parent.mkdir(parents=True, exist_ok=True)
@@ -19,7 +21,7 @@ class ServicePipelineTests(unittest.TestCase):
         config = AppConfig(
             source,
             {
-                "analysis": {"profile_id": "P_K_XANES_v1.2", "averaging_mode": "equal"},
+                "analysis": {"profile_id": profile_id, "averaging_mode": "equal"},
                 "storage": {"database": str(Path(directory) / "runtime.sqlite3")},
                 "references": {"root": str(project / "reference_library")},
                 "beamline": {"calibration_file": str(project / "config" / "beamline_calibration.example.yaml")},
@@ -129,6 +131,45 @@ class ServicePipelineTests(unittest.TestCase):
                 ["detected", "parsed", "qc", "adp", "decision", "scheduler"],
             )
             self.assertEqual(before, after)
+
+    def test_offline_import_processes_folder_without_starting_watcher(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, closing(self._service(directory)) as service:
+            source = Path(__file__).parent.parent / "test_data" / "incoming"
+            import_root = Path(directory) / "offline-data"
+            import_root.mkdir()
+            for name in ("apatite_scan-001.dat", "apatite_scan-002.dat"):
+                shutil.copy2(source / name, import_root / name)
+
+            report = service.import_offline(
+                [import_root], RuntimeLimits(maximum_scans=8, maximum_time_seconds=900), "equal"
+            )
+
+            self.assertEqual(report["discovered_files"], 2)
+            self.assertEqual(report["imported_files"], 2)
+            self.assertEqual(report["failed_files"], 0)
+            self.assertEqual(service.state()["mode"], "OFFLINE")
+            self.assertFalse(service.state()["watching"])
+            self.assertEqual(service.state()["watch_folder"], str(import_root.resolve()))
+            self.assertEqual(service.state()["samples"][0]["physical_scan_count"], 2)
+
+    def test_v13_offline_import_exposes_single_scan_arrays_on_one_grid(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, closing(
+            self._service(directory, "P_K_XANES_v1.3")
+        ) as service:
+            source = Path(__file__).parent.parent / "test_data" / "incoming"
+            report = service.import_offline(
+                [source], RuntimeLimits(maximum_scans=8, maximum_time_seconds=900), "equal"
+            )
+
+            self.assertEqual(report["imported_files"], 6)
+            state = service.state()
+            self.assertEqual(state["samples"][0]["latest"]["profile_id"], "P_K_XANES_v1.3")
+            for scan in state["samples"][0]["scans"]:
+                self.assertEqual(len(scan["energy"]), len(scan["raw"]))
+                self.assertEqual(len(scan["energy"]), len(scan["normalized"]))
+                spectrum = service.scan_spectrum(scan["id"])
+                self.assertEqual(len(spectrum["energy"]), len(spectrum["raw"]))
+                self.assertEqual(len(spectrum["energy"]), len(spectrum["normalized"]))
 
 
 if __name__ == "__main__":

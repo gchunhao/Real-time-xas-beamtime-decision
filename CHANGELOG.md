@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Marked v0.2 explicitly as an incomplete research prototype pending Windows acceptance testing.
+- Replaced default-browser launch with a native pywebview desktop shell backed by the local FastAPI service.
+- Added a deliberately narrow desktop bridge for native folder and multi-file selection; no hardware-control method is exposed.
+- Added Live startup folder selection and a complete Offline batch-import path for folders or multiple XAS files.
+- Bundled the synthetic demonstration dataset and connected the Home demo action to the real Offline pipeline.
+- Grouped each offline import into one project/session workspace and ran imported files through the same parser, QC, decision, audit, and provenance pipeline.
+- Added visible import summaries, native Browse controls, runtime mode labels, and current-session filtering in the desktop UI.
+
 ### P_K_XANES v1.3 frozen scientific profile
 
 - Froze `P_K_XANES_v1.3` after implementation-level regression, UI/provenance verification, and freeze audit.
@@ -13,8 +21,12 @@
 - Marked automatic normalization as approximate, screening-level decision support rather than publication-grade processing.
 - Added energy-calibration provenance and operator UI visibility.
 - Preserved all Route A/Route B thresholds from v1.2; full-selector replay produced zero Route changes across automatic-normalization states.
-- Retained `P_K_XANES_v1.2` unchanged for reproducibility and as the default configured runtime profile pending explicit rollout.
-
+- Retained `P_K_XANES_v1.2` unchanged for reproducibility.
+- Rolled the prototype runtime configuration forward to the frozen `P_K_XANES_v1.3`; v1.2 remains available unchanged.
+- Fixed Overall QC to read `metrics.route` and represent review-gated spectra without a false Good state.
+- Distinguished predicted total scans from additional scans needed in the operator UI.
+- Replaced the hard-coded Running badge with decision-derived Completed, Running, Review Required, or Reacquire status.
+- Returned single-scan energy, raw, and normalized arrays on one analysis grid in both state and spectrum APIs.
 
 - Close SQLite resources deterministically so Windows can remove temporary test databases.
 - Fixed installed shortcut startup when the windowed executable has no console streams;

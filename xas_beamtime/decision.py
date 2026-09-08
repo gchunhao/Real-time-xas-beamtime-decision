@@ -39,7 +39,7 @@ class DecisionOutcome:
 class DecisionEngine:
     """ADP v1.0 shadow orchestration.
 
-    Frozen P_K_XANES v1.2 determines whether the objective route is reached.
+    The configured frozen P_K_XANES profile determines whether the objective route is reached.
     This class keeps the scientific decision separate from beamtime/resource
     constraints and never requires reviewer approval for ordinary STOP/CONTINUE.
     """

@@ -28,6 +28,14 @@ class WatchRequest(BaseModel):
     averaging_mode: str = Field(pattern="^(equal|noise_weighted)$")
 
 
+class OfflineImportRequest(BaseModel):
+    paths: list[str] = Field(min_length=1)
+    recursive: bool = True
+    maximum_scans: int | None = Field(default=None, ge=1)
+    maximum_time_seconds: float | None = Field(default=None, gt=0)
+    averaging_mode: str = Field(default="equal", pattern="^(equal|noise_weighted)$")
+
+
 class ReanalysisRequest(BaseModel):
     sample_id: str
     averaging_mode: str = Field(pattern="^(equal|noise_weighted)$")
@@ -94,6 +102,29 @@ def create_app() -> FastAPI:
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return service.state()
+
+    @app.post("/api/import/offline")
+    def import_offline(request: OfflineImportRequest) -> dict[str, Any]:
+        try:
+            return service.import_offline(
+                request.paths,
+                RuntimeLimits(request.maximum_scans, request.maximum_time_seconds),
+                request.averaging_mode,
+                recursive=request.recursive,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/import/demo")
+    def import_demo() -> dict[str, Any]:
+        try:
+            return service.import_offline(
+                [service.config.path("watch.folder", "./test_data/incoming")],
+                service.config.limits,
+                str(service.config.get("analysis.averaging_mode", "equal")),
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/reanalyze")
     def reanalyze(request: ReanalysisRequest) -> dict[str, Any]:
