@@ -164,6 +164,8 @@ class ServicePipelineTests(unittest.TestCase):
             self.assertEqual(report["imported_files"], 6)
             state = service.state()
             self.assertEqual(state["samples"][0]["latest"]["profile_id"], "P_K_XANES_v1.3")
+            self.assertEqual(len(service.storage.review_queue("PENDING")), 1)
+            self.assertEqual(len(service.storage.review_queue("SUPERSEDED")), 5)
             for scan in state["samples"][0]["scans"]:
                 self.assertEqual(len(scan["energy"]), len(scan["raw"]))
                 self.assertEqual(len(scan["energy"]), len(scan["normalized"]))

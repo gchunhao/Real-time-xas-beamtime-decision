@@ -232,6 +232,7 @@ export interface DecisionResource {
   physical_scan_count?: number;
   usable_scan_count?: number;
   scan_count?: number;
+  predicted_n_quant?: number | null;
   marginal_gain?: number | null;
   resource_constraint?: string | null;
   automatic_reason?: string | null;

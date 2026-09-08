@@ -11,6 +11,7 @@ test("audit reason parsing tolerates arrays and legacy text", () => {
 test("forecast distinguishes predicted total from additional scans", () => {
   assert.deepEqual(scanForecast(6, 2), { total: 6, additional: 4 });
   assert.deepEqual(scanForecast(6, 6), { total: 6, additional: 0 });
+  assert.deepEqual(scanForecast(null, 6), { total: null, additional: null });
   assert.deepEqual(scanForecast(undefined, 2), { total: null, additional: null });
 });
 test("overall QC reads route and completed samples do not remain running", () => {

@@ -447,6 +447,9 @@ class Storage:
                 },
             )
             if result.analysis_context.value == "PRODUCTION" and result.recommendation.value == "REVIEW_REQUIRED":
+                self._supersede_pending_reviews_locked(
+                    sample_id, "SUPERSEDED_BY_NEW_AUTOMATED_DECISION"
+                )
                 self._enqueue_review_locked(
                     sample_id, average_id, decision_id, result.decision_reason_codes,
                     result.suggested_reviewer_action,
